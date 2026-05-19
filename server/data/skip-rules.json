@@ -1,0 +1,16 @@
+[
+  {"testIdPattern": "networking-dual-stack*", "reason": "Test requires dual-stack networking", "validWhen": "Cluster is IPv4-only or IPv6-only"},
+  {"testIdPattern": "*-ipv6-*", "reason": "IPv6-specific test", "validWhen": "Cluster does not have IPv6 configured"},
+  {"testIdPattern": "lifecycle-pod-high-availability*", "reason": "HA test requires multi-node", "validWhen": "Cluster is Single Node OpenShift (SNO)"},
+  {"testIdPattern": "lifecycle-stateful-set-scaling", "reason": "Scaling test not applicable to DaemonSet", "validWhen": "Workload is deployed as DaemonSet"},
+  {"testIdPattern": "lifecycle-deployment-scaling", "reason": "Deployment scaling not applicable", "validWhen": "Workload uses DaemonSet or StatefulSet"},
+  {"testIdPattern": "lifecycle-crd-scaling", "reason": "CRD scaling requires custom resources", "validWhen": "No CRDs defined for workload"},
+  {"testIdPattern": "lifecycle-pod-recreation", "reason": "Pod recreation test not applicable to DaemonSet", "validWhen": "Workload is deployed as DaemonSet"},
+  {"testIdPattern": "operator-*", "reason": "Operator tests require operators under test", "validWhen": "No operators are configured in certsuite config"},
+  {"testIdPattern": "performance-*", "reason": "Performance tests require performance profile", "validWhen": "No performance addon/profile configured"},
+  {"testIdPattern": "affiliated-certification-*", "reason": "Certification tests require Red Hat catalog entries", "validWhen": "Workload is not published in Red Hat catalog"},
+  {"testIdPattern": "networking-icmpv6*", "reason": "ICMPv6 test requires IPv6", "validWhen": "Cluster does not have IPv6 configured"},
+  {"testIdPattern": "lifecycle-affinity-required-pods", "reason": "Affinity test requires multiple replicas", "validWhen": "Workload runs as single replica or DaemonSet"},
+  {"testIdPattern": "platform-alteration-hugepages*", "reason": "Hugepages test requires hugepages configuration", "validWhen": "No hugepages configured on cluster nodes"},
+  {"testIdPattern": "performance-exclusive-cpu-pool*", "reason": "Exclusive CPU pool requires performance profile", "validWhen": "No performance profile applied"}
+]

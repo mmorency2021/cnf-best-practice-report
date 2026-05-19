@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CNF Best Practice Report Generator</title>
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+
+  <!-- Upload Screen -->
+  <div id="upload-screen" class="upload-screen">
+    <div class="upload-container">
+      <div class="upload-header">
+        <h1>CNF Best Practice Report Generator</h1>
+        <p>Upload certsuite results to generate an interactive compliance dashboard</p>
+      </div>
+
+      <form id="upload-form" enctype="multipart/form-data">
+        <div class="upload-grid">
+          <div class="upload-card required">
+            <div class="upload-card-header">
+              <span class="badge badge-required">Required</span>
+              <h3>claim.json</h3>
+            </div>
+            <p>Certsuite test results file</p>
+            <div class="drop-zone" data-input="claim-file">
+              <span class="drop-zone-icon">&#128196;</span>
+              <span class="drop-zone-text">Drop claim.json here or click to browse</span>
+              <span class="drop-zone-file"></span>
+              <input type="file" id="claim-file" name="claim" accept=".json" class="file-input">
+            </div>
+          </div>
+
+          <div class="upload-card optional">
+            <div class="upload-card-header">
+              <span class="badge badge-optional">Optional</span>
+              <h3>Execution Log</h3>
+            </div>
+            <p>Validates test run health</p>
+            <div class="drop-zone" data-input="log-file">
+              <span class="drop-zone-icon">&#128220;</span>
+              <span class="drop-zone-text">Drop .log file here or click to browse</span>
+              <span class="drop-zone-file"></span>
+              <input type="file" id="log-file" name="log" accept=".log,.txt" class="file-input">
+            </div>
+          </div>
+
+          <div class="upload-card optional">
+            <div class="upload-card-header">
+              <span class="badge badge-optional">Optional</span>
+              <h3>Cluster Architecture</h3>
+            </div>
+            <p>Node topology &amp; pod definitions (YAML/JSON)</p>
+            <div class="drop-zone" data-input="cluster-file">
+              <span class="drop-zone-icon">&#9881;</span>
+              <span class="drop-zone-text">Drop cluster file here or click to browse</span>
+              <span class="drop-zone-file"></span>
+              <input type="file" id="cluster-file" name="cluster" accept=".yaml,.yml,.json" class="file-input">
+            </div>
+          </div>
+
+          <div class="upload-card optional">
+            <div class="upload-card-header">
+              <span class="badge badge-optional">Optional</span>
+              <h3>Custom Skip Rules</h3>
+            </div>
+            <p>Project-specific valid skip reasons (JSON)</p>
+            <div class="drop-zone" data-input="skip-rules-file">
+              <span class="drop-zone-icon">&#128203;</span>
+              <span class="drop-zone-text">Drop skip rules JSON here or click to browse</span>
+              <span class="drop-zone-file"></span>
+              <input type="file" id="skip-rules-file" name="skipRules" accept=".json" class="file-input">
+            </div>
+          </div>
+        </div>
+
+        <div class="upload-actions">
+          <button type="submit" id="upload-btn" class="btn btn-primary" disabled>
+            <span class="btn-text">Generate Report</span>
+            <span class="btn-loading" style="display:none;">Processing...</span>
+          </button>
+        </div>
+      </form>
+
+      <div id="upload-error" class="alert alert-error" style="display:none;"></div>
+    </div>
+  </div>
+
+  <!-- Dashboard -->
+  <div id="dashboard" class="dashboard" style="display:none;">
+    <header class="dashboard-header">
+      <div class="header-left">
+        <h1 id="dashboard-title">CNF Best Practice Analysis</h1>
+        <div id="header-meta" class="header-meta"></div>
+      </div>
+      <div class="header-right">
+        <button id="btn-new-report" class="btn btn-outline" title="Upload new files">New Report</button>
+      </div>
+    </header>
+
+    <!-- Log Warning Banner -->
+    <div id="log-warnings" class="alert alert-warning" style="display:none;">
+      <strong>Execution Health Warning</strong>
+      <ul id="log-warning-list"></ul>
+      <p>Consider re-running the certsuite for more reliable results.</p>
+    </div>
+
+    <!-- Export Bar -->
+    <div class="export-bar">
+      <button id="btn-export-pptx" class="btn btn-export">Download PPTX</button>
+      <button id="btn-export-xlsx" class="btn btn-export">Download Excel</button>
+    </div>
+
+    <!-- Dashboard Layout -->
+    <div id="dashboard-layout" class="dashboard-layout">
+      <!-- Left Panel (cluster) -->
+      <aside id="cluster-panel" class="cluster-panel" style="display:none;"></aside>
+
+      <!-- Main Content -->
+      <main class="main-content">
+        <!-- Summary Cards -->
+        <div id="summary-cards" class="summary-cards"></div>
+
+        <!-- Filters -->
+        <div class="filter-bar">
+          <div class="filter-group">
+            <label for="filter-category">Category</label>
+            <select id="filter-category" class="filter-select">
+              <option value="all">All Categories</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label for="filter-scenario">Scenario</label>
+            <select id="filter-scenario" class="filter-select">
+              <option value="all">All Scenarios</option>
+              <option value="telco-mandatory">Telco Mandatory</option>
+              <option value="telco-optional">Telco Optional</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label>Status</label>
+            <div class="status-checkboxes">
+              <label class="checkbox-chip chip-passed">
+                <input type="checkbox" id="filter-passed" checked> Passed
+              </label>
+              <label class="checkbox-chip chip-failed">
+                <input type="checkbox" id="filter-failed" checked> Failed
+              </label>
+              <label class="checkbox-chip chip-skipped">
+                <input type="checkbox" id="filter-skipped" checked> Skipped
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Category Summary -->
+        <div id="category-summary" class="category-summary"></div>
+
+        <!-- Test Result Tables -->
+        <div id="test-tables" class="test-tables"></div>
+      </main>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+  <script src="/js/dashboard.js"></script>
+  <script src="/js/filters.js"></script>
+  <script src="/js/cluster-panel.js"></script>
+  <script src="/js/export.js"></script>
+</body>
+</html>
