@@ -29,7 +29,7 @@ POST /api/upload (multipart: claim, log, priorityMapping)
   → catalog-mapper.js  → enrich with catalog data + priority (0-4, with optional CSV/XLSX overrides)
   → skip-analyzer.js   → classify skipped tests (valid-skip / needs-review)
   → log-validator.js   → health warnings (stream-based for large files)
-  → Store in memory session (30-min TTL)
+  → Store in memory session (no TTL — persists until server restart)
   → Return dashboard JSON (includes environment data + flat results array)
 
 GET /api/export/pptx/:sessionId → pptx-generator.js → .pptx buffer
@@ -62,9 +62,9 @@ Both implement the same interface: `save()`, `list()`, `get()`, `delete()`. Load
 | `server/parsers/claim-parser.js` | Parse claim.json: normalize error→failed, extract NonCompliantObjectsOut, extract environment (cluster/hardware/pods/helm) |
 | `server/parsers/catalog-mapper.js` | Enrich results with catalog descriptions, remediation, priority 0-4; accepts optional priority overrides map |
 | `server/parsers/skip-analyzer.js` | Classify skips: built-in rules → skip reason text analysis |
-| `server/parsers/log-validator.js` | Stream-based log scanning: ERROR count, probe pod missing, panics, completion |
-| `server/generators/pptx-generator.js` | Red Hat branded slide deck using pptxgenjs (includes environment slide) |
-| `server/generators/xlsx-generator.js` | Failed case summary + Environment Summary worksheet using exceljs |
+| `server/parsers/log-validator.js` | Stream-based log scanning: probe pod/daemonset missing, panics, completion check (ERROR lines ignored — normal in certsuite) |
+| `server/generators/pptx-generator.js` | Red Hat branded slide deck using pptxgenjs (includes environment slide, table-based failed-by-category) |
+| `server/generators/xlsx-generator.js` | Failed Case Summary + Environment Summary + All Tests worksheets using exceljs |
 | `server/generators/csv-generator.js` | Failed case CSV with environment header for Google Sheets (no dependencies) |
 | `server/data/catalog.json` | Pre-fetched certsuite catalog (102 test entries) |
 | `server/data/skip-rules.json` | Built-in valid skip reason patterns (14 rules) |
@@ -144,6 +144,22 @@ environment: {
 - **helmCharts**: From `testHelmChartReleases` — chart name/version from nested `chart.metadata`
 
 Surfaced in: dashboard Environment tab, PPTX environment slide, XLSX "Environment Summary" worksheet, CSV header block.
+
+### XLSX Worksheets
+1. **Failed Case Summary** — Failed tests sorted by priority then category, with color-coded priority cells and priority legend
+2. **Environment Summary** — Config, operators, SR-IOV, test pods, workloads, helm charts
+3. **All Tests** — Every test case (passed/failed/skipped), sorted by category then priority, with color-coded Status and Priority cells
+
+### PPTX Failed-by-Category Slides
+Table-based layout with 3 columns (Test ID, Category, Priority), 10 rows per slide, sorted by category then priority. Uses same styling as Failed Test Case Details slides.
+
+### Log Validation
+The log validator (`log-validator.js`) checks for:
+- **Probe pod/daemonset failures** — probe pod not running, probe daemonset not spawning, failed to deploy probe
+- **Crashes** — panic, fatal, segfault
+- **Incomplete execution** — no completion marker in last 100 lines
+
+ERROR lines are **not** counted or flagged — they are normal certsuite output and not indicative of problems.
 
 ### Cluster Architecture Security Summary
 The Environment tab's "Security Test Results" section displays actual P0 and P1 certsuite test results (from `data.results` flat array) instead of manual pod-spec inspection. Test results are threaded through `renderEnvironment(env, results)` → `renderArchSummary(env, results)` and grouped by priority level with pass/fail/skip status for each test.

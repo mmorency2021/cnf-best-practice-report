@@ -22,17 +22,6 @@ app.use('/api', reportsRouter);
 app.use('/api', compareRouter);
 
 const sessions = new Map();
-const SESSION_TTL = 30 * 60 * 1000;
-
-function cleanupSessions() {
-  const now = Date.now();
-  for (const [id, session] of sessions) {
-    if (now - session.createdAt > SESSION_TTL) {
-      sessions.delete(id);
-    }
-  }
-}
-setInterval(cleanupSessions, 5 * 60 * 1000);
 
 app.set('sessions', sessions);
 app.set('store', store);

@@ -465,47 +465,57 @@ function addResultsSummarySlide(pptx, totals, resultsBySuite) {
 }
 
 function addFailedByCategorySlides(pptx, resultsBySuite) {
-  const suites = Object.keys(resultsBySuite).sort();
-  const failedBySuite = {};
-  for (const suite of suites) {
-    const failed = resultsBySuite[suite].filter(r => r.normalizedState === 'failed');
-    if (failed.length > 0) failedBySuite[suite] = failed;
+  const failed = [];
+  for (const [suite, results] of Object.entries(resultsBySuite)) {
+    for (const r of results) {
+      if (r.normalizedState === 'failed') failed.push(r);
+    }
   }
+  if (failed.length === 0) return;
 
-  if (Object.keys(failedBySuite).length === 0) return;
-
-  const slide = pptx.addSlide();
-  addRedBar(slide);
-  slide.addText('Failed Tests per Category', {
-    x: 0.8, y: 0.5, w: 11, h: 0.8,
-    fontSize: 28, color: RH_DARK, bold: true
+  failed.sort((a, b) => {
+    const cat = (a.suite || '').localeCompare(b.suite || '');
+    if (cat !== 0) return cat;
+    return (a.priority ?? 4) - (b.priority ?? 4);
   });
 
-  let yPos = 1.5;
-  for (const [suite, failed] of Object.entries(failedBySuite)) {
-    if (yPos > 6.0) {
-      addFooter(slide);
-      const nextSlide = pptx.addSlide();
-      addRedBar(nextSlide);
-      nextSlide.addText('Failed Tests per Category (cont.)', {
-        x: 0.8, y: 0.5, w: 11, h: 0.8,
-        fontSize: 28, color: RH_DARK, bold: true
-      });
-      yPos = 1.5;
+  const rowsPerSlide = 10;
+  for (let i = 0; i < failed.length; i += rowsPerSlide) {
+    const batch = failed.slice(i, i + rowsPerSlide);
+    const slide = pptx.addSlide();
+    addRedBar(slide);
+
+    const pageNum = Math.floor(i / rowsPerSlide) + 1;
+    const totalPages = Math.ceil(failed.length / rowsPerSlide);
+    slide.addText(`Failed Tests per Category (${pageNum}/${totalPages})`, {
+      x: 0.8, y: 0.5, w: 11, h: 0.7,
+      fontSize: 24, color: RH_DARK, bold: true
+    });
+
+    const tableData = [
+      [
+        { text: 'Test ID', options: { bold: true, color: WHITE, fill: { color: RH_DARK }, fontSize: 9 } },
+        { text: 'Category', options: { bold: true, color: WHITE, fill: { color: RH_DARK }, fontSize: 9 } },
+        { text: 'Priority', options: { bold: true, color: WHITE, fill: { color: RH_DARK }, fontSize: 9, align: 'center' } }
+      ]
+    ];
+
+    for (const r of batch) {
+      const pColor = PRIORITY_COLORS[r.priority ?? 4] || '6C757D';
+      tableData.push([
+        { text: r.id, options: { fontSize: 8, fontFace: 'Courier New' } },
+        { text: formatSuiteName(r.suite || ''), options: { fontSize: 8 } },
+        { text: String(r.priority ?? 4), options: { fontSize: 10, bold: true, color: WHITE, fill: { color: pColor }, align: 'center' } }
+      ]);
     }
 
-    slide.addText(`${formatSuiteName(suite)} (${failed.length} failed)`, {
-      x: 0.8, y: yPos, w: 11, h: 0.4,
-      fontSize: 14, color: RH_RED, bold: true
+    slide.addTable(tableData, {
+      x: 0.5, y: 1.3, w: 12.3, colW: [7.5, 3.5, 1.3],
+      border: { pt: 0.5, color: 'E0E0E0' },
+      rowH: 0.45, autoPage: false
     });
-    yPos += 0.4;
-
-    const bullets = failed.map(f => ({ text: `  ${f.id}`, options: { fontSize: 10, color: RH_DARK, bullet: true } }));
-    const textHeight = Math.min(bullets.length * 0.22, 2.5);
-    slide.addText(bullets, { x: 1.2, y: yPos, w: 11, h: textHeight });
-    yPos += textHeight + 0.3;
+    addFooter(slide);
   }
-  addFooter(slide);
 }
 
 function addFailedDetailsSlides(pptx, results) {

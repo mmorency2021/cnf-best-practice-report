@@ -8,6 +8,12 @@ const PRIORITY_COLORS = {
   4: { bg: 'FF6C757D', font: 'FFFFFFFF' }
 };
 
+const STATUS_COLORS = {
+  passed: { bg: 'FF28A745', font: 'FFFFFFFF' },
+  failed: { bg: 'FFDC3545', font: 'FFFFFFFF' },
+  skipped: { bg: 'FF6C757D', font: 'FFFFFFFF' }
+};
+
 async function generate(claimData) {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'CNF Best Practice Report Generator';
@@ -100,6 +106,7 @@ async function generate(claimData) {
   }
 
   addEnvironmentSheet(workbook, claimData.environment);
+  addAllTestsSheet(workbook, claimData);
 
   return workbook.xlsx.writeBuffer();
 }
@@ -253,6 +260,75 @@ function addEnvironmentSheet(workbook, environment) {
     { width: 45 }, { width: 10 }, { width: 10 }, { width: 10 },
     { width: 10 }, { width: 10 }, { width: 12 }, { width: 10 }
   ];
+}
+
+function addAllTestsSheet(workbook, claimData) {
+  const sheet = workbook.addWorksheet('All Tests', {
+    views: [{ state: 'frozen', xSplit: 0, ySplit: 1 }]
+  });
+
+  sheet.columns = [
+    { header: 'Test ID', key: 'testId', width: 45 },
+    { header: 'Category', key: 'category', width: 25 },
+    { header: 'Status', key: 'status', width: 12 },
+    { header: 'Priority', key: 'priority', width: 10 },
+    { header: 'Impact', key: 'impact', width: 40 },
+    { header: 'Remediation', key: 'remediation', width: 50 },
+    { header: 'Scenario', key: 'scenario', width: 20 }
+  ];
+
+  const headerRow = sheet.getRow(1);
+  headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
+  headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF151515' } };
+  headerRow.alignment = { vertical: 'middle', wrapText: true };
+  headerRow.height = 28;
+
+  const allResults = (claimData.results || [])
+    .slice()
+    .sort((a, b) => {
+      const cat = (a.suite || '').localeCompare(b.suite || '');
+      if (cat !== 0) return cat;
+      return (a.priority ?? 4) - (b.priority ?? 4);
+    });
+
+  for (const result of allResults) {
+    const row = sheet.addRow({
+      testId: result.id,
+      category: formatSuiteName(result.suite || ''),
+      status: result.normalizedState || 'unknown',
+      priority: result.priority ?? 4,
+      impact: result.impact || result.description || '',
+      remediation: result.remediation || '',
+      scenario: result.scenario || ''
+    });
+
+    row.alignment = { vertical: 'top', wrapText: true };
+
+    const statusCell = row.getCell('status');
+    const sColor = STATUS_COLORS[result.normalizedState] || STATUS_COLORS.skipped;
+    statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: sColor.bg } };
+    statusCell.font = { bold: true, color: { argb: sColor.font } };
+    statusCell.alignment = { horizontal: 'center', vertical: 'middle' };
+
+    const priorityCell = row.getCell('priority');
+    const pColor = PRIORITY_COLORS[result.priority ?? 4] || PRIORITY_COLORS[4];
+    priorityCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: pColor.bg } };
+    priorityCell.font = { bold: true, color: { argb: pColor.font } };
+    priorityCell.alignment = { horizontal: 'center', vertical: 'middle' };
+  }
+
+  const totalRows = sheet.rowCount;
+  for (let i = 1; i <= totalRows; i++) {
+    const r = sheet.getRow(i);
+    for (let j = 1; j <= 7; j++) {
+      r.getCell(j).border = {
+        top: { style: 'thin', color: { argb: 'FFE0E0E0' } },
+        left: { style: 'thin', color: { argb: 'FFE0E0E0' } },
+        bottom: { style: 'thin', color: { argb: 'FFE0E0E0' } },
+        right: { style: 'thin', color: { argb: 'FFE0E0E0' } }
+      };
+    }
+  }
 }
 
 function formatSuiteName(suite) {

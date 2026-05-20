@@ -3,7 +3,6 @@ const readline = require('readline');
 
 async function validate(filePath) {
   const warnings = [];
-  let errorCount = 0;
   let totalLines = 0;
   let probePodMissing = false;
   let crashDetected = false;
@@ -15,20 +14,11 @@ async function validate(filePath) {
 
   for await (const line of rl) {
     totalLines++;
-    if (/\bERROR\b/i.test(line)) errorCount++;
-    if (/probe.*pod.*not\s+(running|found|ready)/i.test(line)) probePodMissing = true;
+    if (/probe.*pod.*not\s+(running|found|ready)/i.test(line) || /probe.*daemonset.*not\s+(running|found|ready|spawn)/i.test(line) || /failed.*to.*deploy.*probe/i.test(line)) probePodMissing = true;
     if (/\b(panic|fatal|segfault)\b/i.test(line)) crashDetected = true;
 
     lastLines.push(line);
     if (lastLines.length > MAX_LAST_LINES) lastLines.shift();
-  }
-
-  if (errorCount > 50) {
-    warnings.push({
-      type: 'excessive-errors',
-      message: `High error rate detected: ${errorCount} ERROR lines in ${totalLines} total lines`,
-      details: `${errorCount} errors found. Threshold is 50.`
-    });
   }
 
   if (probePodMissing) {
@@ -60,7 +50,7 @@ async function validate(filePath) {
   return {
     healthy: warnings.length === 0,
     warnings,
-    stats: { totalLines, errorCount }
+    stats: { totalLines }
   };
 }
 
