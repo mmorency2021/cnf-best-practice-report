@@ -36,6 +36,11 @@ POST /api/upload (multipart: claim, log, cluster, skipRules)
 GET /api/export/pptx/:sessionId → pptx-generator.js → .pptx buffer
 GET /api/export/xlsx/:sessionId → xlsx-generator.js → .xlsx buffer
 
+POST /api/compare (multipart: claim_a, log_a, claim_b, log_b)
+  → Parse both through same pipeline
+  → comparator.js → match tests by ID, classify changes
+  → Return comparison JSON (deltas, per-suite diffs)
+
 POST /api/reports         → Save current session as named report
 GET  /api/reports         → List all saved reports (summary only)
 GET  /api/reports/:id     → Load saved report (injects into session for exports)
@@ -67,18 +72,21 @@ Both implement the same interface: `save()`, `list()`, `get()`, `delete()`. Load
 | `server/storage/json-store.js` | JSON file storage: `server/reports/{id}.json` + `_index.json` |
 | `server/storage/sqlite-store.js` | SQLite storage: `server/reports.db` with better-sqlite3 |
 | `server/routes/reports.js` | CRUD API for saving/loading/deleting reports |
+| `server/parsers/comparator.js` | Compare two parsed claim datasets: match by test ID, classify changes |
+| `server/routes/compare.js` | POST /api/compare endpoint for two-file comparison |
 
 ### Frontend Files
 
 | File | Purpose |
 |------|---------|
-| `public/index.html` | SPA shell: upload, dashboard, history views + save modal |
-| `public/js/app.js` | Three-view navigation (upload/dashboard/history), drag-and-drop, upload |
+| `public/index.html` | SPA shell: upload (single/compare), dashboard, comparison, history views |
+| `public/js/app.js` | Four-view navigation (upload/dashboard/comparison/history), drag-and-drop, upload |
 | `public/js/dashboard.js` | Render header, log warnings, summary cards, category tables, test rows |
 | `public/js/filters.js` | Category dropdown, scenario dropdown, status checkboxes (AND logic) |
 | `public/js/cluster-panel.js` | Left sidebar: topology card, node list, pod list with YAML download |
 | `public/js/export.js` | Trigger PPTX/XLSX download + save report button wiring |
 | `public/js/history.js` | Report history list, save/load/delete, modal and toast UI |
+| `public/js/comparison.js` | Compare mode: upload toggle, comparison view rendering, delta badges |
 
 ## Data Model
 
@@ -97,6 +105,16 @@ Both implement the same interface: `save()`, `list()`, `get()`, `delete()`. Load
 2. Custom rules uploaded by user (optional JSON file)
 3. Skip reason text analysis (IPv6, SNO, no operators, performance profile)
 4. Fallback: `needs-review`
+
+### Comparison Change Classification
+
+Tests matched by `id` across two runs. State ranking: passed (2) > skipped (1) > failed (0).
+
+- **improved**: state moved toward better (e.g., failed→passed)
+- **regressed**: state moved toward worse (e.g., passed→failed)
+- **unchanged**: same normalizedState in both runs
+- **added**: test exists in new run only
+- **removed**: test exists in baseline only
 
 ### Scenario Classification
 From catalog: Telco Mandatory/Optional, Non-Telco, Far-Edge, Extended

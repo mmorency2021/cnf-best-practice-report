@@ -25,6 +25,11 @@
         <p>Upload certsuite results to generate an interactive compliance dashboard</p>
       </div>
 
+      <div class="mode-selector">
+        <button class="mode-btn active" id="mode-single" onclick="setUploadMode('single')">Single Report</button>
+        <button class="mode-btn" id="mode-compare" onclick="setUploadMode('compare')">Compare Reports</button>
+      </div>
+
       <form id="upload-form" enctype="multipart/form-data">
         <div class="upload-grid">
           <div class="upload-card required">
@@ -88,6 +93,73 @@
           <button type="submit" id="upload-btn" class="btn btn-primary" disabled>
             <span class="btn-text">Generate Report</span>
             <span class="btn-loading" style="display:none;">Processing...</span>
+          </button>
+        </div>
+      </form>
+
+      <form id="compare-form" enctype="multipart/form-data" style="display:none;">
+        <div class="compare-grid">
+          <div class="compare-panel">
+            <h3 class="compare-panel-title">Baseline (A)</h3>
+            <div class="upload-card required">
+              <div class="upload-card-header">
+                <span class="badge badge-required">Required</span>
+                <h3>claim.json</h3>
+              </div>
+              <p>Baseline certsuite results</p>
+              <div class="drop-zone" data-input="claim-file-a">
+                <span class="drop-zone-icon">&#128196;</span>
+                <span class="drop-zone-text">Drop claim.json here or click to browse</span>
+                <span class="drop-zone-file"></span>
+                <input type="file" id="claim-file-a" name="claim_a" accept=".json" class="file-input">
+              </div>
+            </div>
+            <div class="upload-card optional">
+              <div class="upload-card-header">
+                <span class="badge badge-optional">Optional</span>
+                <h3>Execution Log</h3>
+              </div>
+              <div class="drop-zone" data-input="log-file-a">
+                <span class="drop-zone-icon">&#128220;</span>
+                <span class="drop-zone-text">Drop .log file here</span>
+                <span class="drop-zone-file"></span>
+                <input type="file" id="log-file-a" name="log_a" accept=".log,.txt" class="file-input">
+              </div>
+            </div>
+          </div>
+          <div class="compare-panel">
+            <h3 class="compare-panel-title">New Run (B)</h3>
+            <div class="upload-card required">
+              <div class="upload-card-header">
+                <span class="badge badge-required">Required</span>
+                <h3>claim.json</h3>
+              </div>
+              <p>New certsuite results</p>
+              <div class="drop-zone" data-input="claim-file-b">
+                <span class="drop-zone-icon">&#128196;</span>
+                <span class="drop-zone-text">Drop claim.json here or click to browse</span>
+                <span class="drop-zone-file"></span>
+                <input type="file" id="claim-file-b" name="claim_b" accept=".json" class="file-input">
+              </div>
+            </div>
+            <div class="upload-card optional">
+              <div class="upload-card-header">
+                <span class="badge badge-optional">Optional</span>
+                <h3>Execution Log</h3>
+              </div>
+              <div class="drop-zone" data-input="log-file-b">
+                <span class="drop-zone-icon">&#128220;</span>
+                <span class="drop-zone-text">Drop .log file here</span>
+                <span class="drop-zone-file"></span>
+                <input type="file" id="log-file-b" name="log_b" accept=".log,.txt" class="file-input">
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="upload-actions">
+          <button type="submit" id="compare-btn" class="btn btn-primary" disabled>
+            <span class="btn-text">Compare Reports</span>
+            <span class="btn-loading" style="display:none;">Comparing...</span>
           </button>
         </div>
       </form>
@@ -173,6 +245,49 @@
     </div>
   </div>
 
+  <!-- Comparison View -->
+  <div id="comparison-screen" class="comparison-screen" style="display:none;">
+    <header class="comparison-header">
+      <div class="comparison-header-col">
+        <span class="comparison-label">Baseline (A)</span>
+        <div id="comp-meta-a" class="comparison-meta"></div>
+      </div>
+      <div class="comparison-header-vs">vs</div>
+      <div class="comparison-header-col">
+        <span class="comparison-label">New Run (B)</span>
+        <div id="comp-meta-b" class="comparison-meta"></div>
+      </div>
+      <button id="btn-new-compare" class="btn btn-outline" onclick="showUploadScreen()">New Report</button>
+    </header>
+
+    <div class="comparison-body">
+      <div id="delta-summary" class="delta-summary"></div>
+      <div id="comparison-totals" class="comparison-totals"></div>
+
+      <div class="filter-bar">
+        <div class="filter-group">
+          <label for="comp-filter-category">Category</label>
+          <select id="comp-filter-category" class="filter-select">
+            <option value="all">All Categories</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label for="comp-filter-change">Change</label>
+          <select id="comp-filter-change" class="filter-select">
+            <option value="all">All Changes</option>
+            <option value="regressed">Regressed</option>
+            <option value="improved">Improved</option>
+            <option value="unchanged">Unchanged</option>
+            <option value="added">Added</option>
+            <option value="removed">Removed</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="comparison-suites" class="test-tables"></div>
+    </div>
+  </div>
+
   <!-- History Screen -->
   <div id="history-screen" class="history-screen" style="display:none;">
     <div class="history-container">
@@ -206,5 +321,6 @@
   <script src="/js/filters.js"></script>
   <script src="/js/cluster-panel.js"></script>
   <script src="/js/export.js"></script>
+  <script src="/js/comparison.js"></script>
 </body>
 </html>

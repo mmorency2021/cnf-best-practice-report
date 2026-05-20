@@ -3,7 +3,9 @@ let appState = {
   data: null,
   currentView: 'upload',
   reportId: null,
-  reportName: null
+  reportName: null,
+  compareMode: false,
+  comparisonData: null
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -109,6 +111,7 @@ function initUploadForm() {
 function showDashboard(data) {
   document.getElementById('upload-screen').style.display = 'none';
   document.getElementById('history-screen').style.display = 'none';
+  document.getElementById('comparison-screen').style.display = 'none';
   document.getElementById('dashboard').style.display = 'block';
   appState.currentView = 'dashboard';
   updateNavState();
@@ -122,6 +125,7 @@ function showDashboard(data) {
 function showUploadScreen() {
   document.getElementById('dashboard').style.display = 'none';
   document.getElementById('history-screen').style.display = 'none';
+  document.getElementById('comparison-screen').style.display = 'none';
   document.getElementById('upload-screen').style.display = 'flex';
   document.getElementById('upload-form').reset();
   document.querySelectorAll('.drop-zone').forEach(z => {
@@ -134,13 +138,24 @@ function showUploadScreen() {
   appState.data = null;
   appState.reportId = null;
   appState.reportName = null;
+  appState.comparisonData = null;
   appState.currentView = 'upload';
   updateNavState();
+
+  // Reset compare form drop zones
+  document.querySelectorAll('#compare-form .drop-zone').forEach(z => {
+    z.classList.remove('has-file');
+    const fl = z.querySelector('.drop-zone-file');
+    if (fl) fl.textContent = '';
+  });
+  document.getElementById('compare-form')?.reset();
+  if (typeof checkCompareReady === 'function') checkCompareReady();
 }
 
 function showHistoryScreen() {
   document.getElementById('upload-screen').style.display = 'none';
   document.getElementById('dashboard').style.display = 'none';
+  document.getElementById('comparison-screen').style.display = 'none';
   document.getElementById('history-screen').style.display = 'block';
   appState.currentView = 'history';
   updateNavState();
@@ -149,7 +164,7 @@ function showHistoryScreen() {
 
 function updateNavState() {
   document.querySelectorAll('.nav-link').forEach(btn => btn.classList.remove('active'));
-  if (appState.currentView === 'upload' || appState.currentView === 'dashboard') {
+  if (appState.currentView === 'upload' || appState.currentView === 'dashboard' || appState.currentView === 'comparison') {
     document.getElementById('nav-upload')?.classList.add('active');
   } else if (appState.currentView === 'history') {
     document.getElementById('nav-history')?.classList.add('active');

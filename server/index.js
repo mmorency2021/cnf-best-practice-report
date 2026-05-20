@@ -4,6 +4,7 @@ const uploadRouter = require('./routes/upload');
 const exportPptxRouter = require('./routes/export-pptx');
 const exportXlsxRouter = require('./routes/export-xlsx');
 const reportsRouter = require('./routes/reports');
+const compareRouter = require('./routes/compare');
 const store = require('./storage');
 
 const app = express();
@@ -16,6 +17,7 @@ app.use('/api', uploadRouter);
 app.use('/api/export', exportPptxRouter);
 app.use('/api/export', exportXlsxRouter);
 app.use('/api', reportsRouter);
+app.use('/api', compareRouter);
 
 const sessions = new Map();
 const SESSION_TTL = 30 * 60 * 1000;
