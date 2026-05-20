@@ -85,6 +85,9 @@ function initUploadForm() {
     const priorityFile = document.getElementById('priority-file').files[0];
     if (priorityFile) formData.append('priorityMapping', priorityFile);
 
+    const cnfName = (document.getElementById('cnf-name-input').value || '').trim();
+    if (cnfName) formData.append('cnfName', cnfName);
+
     try {
       const resp = await fetch('/api/upload', { method: 'POST', body: formData });
       const data = await resp.json();

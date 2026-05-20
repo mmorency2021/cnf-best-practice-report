@@ -98,6 +98,23 @@ body {
 .mode-btn:hover { background: rgba(56,189,248,0.1); color: var(--text); }
 .mode-btn.active { background: var(--rh-red); border-color: var(--rh-red); color: #fff; }
 
+/* CNF Name Field */
+.cnf-name-field {
+  margin-bottom: 1.25rem;
+}
+.cnf-name-field label {
+  display: block;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text);
+  margin-bottom: 0.35rem;
+}
+.cnf-name-field .field-hint {
+  font-weight: 400;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
 /* Compare Upload Grid */
 .compare-grid {
   display: grid;

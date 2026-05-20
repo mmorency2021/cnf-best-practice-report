@@ -94,6 +94,12 @@ router.post('/upload', fileFields, async (req, res) => {
     // 1. Parse claim
     const claimData = claimParser.parse(claimFile.path, claimFile.originalname);
 
+    // Override cnfVersion if user provided a CNF name
+    const cnfName = (req.body.cnfName || '').trim();
+    if (cnfName) {
+      claimData.metadata.cnfVersion = cnfName;
+    }
+
     // 2. Enrich with catalog (apply priority overrides if uploaded)
     let priorityOverrides = null;
     const priorityFile = req.files?.priorityMapping?.[0];
