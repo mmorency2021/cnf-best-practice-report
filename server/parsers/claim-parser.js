@@ -40,6 +40,156 @@ function extractFailureDetails(nonCompliantObjects) {
   });
 }
 
+function parseOperatorSummary(str) {
+  // Format: "Status operator: name ver: version in ns: [namespace]" or "(all namespaces)"
+  const match = str.match(/^(\w+)\s+operator:\s+(.+?)\s+ver:\s+(.+?)(?:\s+in\s+ns:\s+\[(.+?)\]|\s+\(all namespaces\))$/);
+  if (!match) return { name: str, version: '', namespace: '', status: '' };
+  return {
+    name: match[2],
+    version: match[3],
+    namespace: match[4] || 'all namespaces',
+    status: match[1]
+  };
+}
+
+function extractEnvironment(claimData) {
+  const configs = claimData.configurations || {};
+  const nodes = claimData.nodes || {};
+  const versions = claimData.versions || {};
+
+  const env = {
+    cluster: { operators: [], storageClasses: [], csiDrivers: [], nodeCount: {} },
+    hardware: { sriovPolicies: [], nodesHwInfo: {} },
+    pods: {
+      testPods: [], allPodsCount: 0,
+      testDeployments: [], testStatefulSets: [],
+      podDisruptionBudgets: []
+    },
+    helmCharts: [],
+    config: { targetNamespaces: [], podsUnderTestLabels: [] }
+  };
+
+  try {
+    const opsSummary = configs.AllOperatorsSummary || [];
+    env.cluster.operators = opsSummary.map(s =>
+      typeof s === 'string' ? parseOperatorSummary(s) : s
+    );
+  } catch (_) {}
+
+  try {
+    env.cluster.storageClasses = (configs.StorageClassList || []).map(sc => ({
+      name: (sc.metadata || {}).name || '',
+      provisioner: sc.provisioner || ''
+    }));
+  } catch (_) {}
+
+  try {
+    const csiItems = (nodes.csiDriver || {}).items || [];
+    env.cluster.csiDrivers = csiItems.map(d => (d.metadata || {}).name || '');
+  } catch (_) {}
+
+  try {
+    const summary = nodes.nodeSummary || {};
+    const nodeNames = Object.keys(summary);
+    env.cluster.nodeCount = { total: nodeNames.length, names: nodeNames };
+  } catch (_) {}
+
+  try {
+    env.hardware.sriovPolicies = (configs.AllSriovNetworkNodePolicies || []).map(p => {
+      const spec = p.spec || {};
+      return {
+        name: (p.metadata || {}).name || '',
+        deviceType: spec.deviceType || '',
+        numVfs: spec.numVfs || 0,
+        resourceName: spec.resourceName || '',
+        nicSelector: spec.nicSelector || {}
+      };
+    });
+  } catch (_) {}
+
+  try {
+    const hwInfo = nodes.nodesHwInfo || {};
+    if (Object.keys(hwInfo).length > 0) env.hardware.nodesHwInfo = hwInfo;
+  } catch (_) {}
+
+  try {
+    env.pods.testPods = (configs.testPods || []).map(pod => {
+      const meta = pod.metadata || {};
+      const spec = pod.spec || {};
+      const status = pod.status || {};
+      return {
+        name: meta.name || '',
+        namespace: meta.namespace || '',
+        nodeName: spec.nodeName || '',
+        phase: status.phase || '',
+        hostNetwork: spec.hostNetwork || false,
+        hostPID: spec.hostPID || false,
+        hostIPC: spec.hostIPC || false,
+        containers: (pod.Containers || []).map(c => {
+          const cd = c.ContainerData || c;
+          return {
+            name: cd.name || '',
+            image: cd.image || '',
+            resources: cd.resources || {},
+            securityContext: cd.securityContext || {}
+          };
+        }),
+        tolerations: (spec.tolerations || []).map(t => ({
+          key: t.key || '*',
+          effect: t.effect || '*'
+        }))
+      };
+    });
+  } catch (_) {}
+
+  try { env.pods.allPodsCount = (configs.AllPods || []).length; } catch (_) {}
+
+  try {
+    env.pods.testDeployments = (configs.testDeployments || []).map(d => ({
+      name: (d.metadata || {}).name || '',
+      namespace: (d.metadata || {}).namespace || '',
+      replicas: (d.spec || {}).replicas ?? 0
+    }));
+  } catch (_) {}
+
+  try {
+    env.pods.testStatefulSets = (configs.testStatefulSets || []).map(s => ({
+      name: (s.metadata || {}).name || '',
+      namespace: (s.metadata || {}).namespace || '',
+      replicas: (s.spec || {}).replicas ?? 0
+    }));
+  } catch (_) {}
+
+  try {
+    env.pods.podDisruptionBudgets = (configs.PodDisruptionBudgets || []).map(p => ({
+      name: (p.metadata || {}).name || '',
+      namespace: (p.metadata || {}).namespace || '',
+      maxUnavailable: (p.spec || {}).maxUnavailable ?? null,
+      minAvailable: (p.spec || {}).minAvailable ?? null
+    }));
+  } catch (_) {}
+
+  try {
+    env.helmCharts = (configs.testHelmChartReleases || []).map(h => {
+      const chartMeta = (h.chart || {}).metadata || {};
+      return {
+        name: h.name || '',
+        namespace: h.namespace || '',
+        chartName: chartMeta.name || '',
+        chartVersion: chartMeta.version || ''
+      };
+    });
+  } catch (_) {}
+
+  try {
+    const cfg = configs.Config || {};
+    env.config.targetNamespaces = (cfg.targetNameSpaces || []).map(n => n.name || n);
+    env.config.podsUnderTestLabels = cfg.podsUnderTestLabels || [];
+  } catch (_) {}
+
+  return env;
+}
+
 function parse(filePath, filename) {
   const raw = fs.readFileSync(filePath, 'utf-8');
   const claim = JSON.parse(raw);
@@ -104,7 +254,8 @@ function parse(filePath, filename) {
     },
     results: parsedResults,
     totals,
-    resultsBySuite
+    resultsBySuite,
+    environment: extractEnvironment(claimData)
   };
 }
 

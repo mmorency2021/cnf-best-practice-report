@@ -47,8 +47,8 @@ async function generate(claimData) {
   // Slide 7: Section divider
   addSectionDivider(pptx, 'CNF Test Results');
 
-  // Slide 8: What is [CNF]
-  addWhatIsCnfSlide(pptx, cnf);
+  // Slide 8: Cluster Architecture overview
+  addEnvironmentSlide(pptx, cnf, claimData.environment);
 
   // Slide 9: Test scenario — versions
   addTestScenarioSlide(pptx, meta);
@@ -124,7 +124,8 @@ function addPlanSlide(pptx) {
   const items = [
     'Red Hat Best Practice overview',
     'Cert Suite — test suites and scenarios',
-    'Test execution configuration',
+    'Cluster Architecture & Configuration',
+    'Test execution scenario',
     'Summary of results',
     'Failed test case analysis',
     'Detailed failed test case breakdown',
@@ -241,22 +242,131 @@ function addSectionDivider(pptx, title) {
   });
 }
 
-function addWhatIsCnfSlide(pptx, cnf) {
+function addEnvironmentSlide(pptx, cnf, environment) {
+  const env = environment || {};
+  const pods = env.pods || {};
+  const cluster = env.cluster || {};
+  const hw = env.hardware || {};
+  const config = env.config || {};
+
   const slide = pptx.addSlide();
   addRedBar(slide);
-  slide.addText(`What is ${cnf}?`, {
+  slide.addText(`${cnf} — Cluster Architecture`, {
     x: 0.8, y: 0.5, w: 11, h: 0.8,
     fontSize: 28, color: RH_DARK, bold: true
   });
-  slide.addText(
-    `[Description of ${cnf} — to be filled in by the presenter]\n\n` +
-    'This section should describe the CNF workload under test, including its purpose, ' +
-    'architecture overview, and the namespaces/deployments being validated.',
-    {
-      x: 0.8, y: 1.5, w: 11.5, h: 4.5,
-      fontSize: 14, color: RH_GREY, italic: true, valign: 'top'
+
+  // Left: Cluster & workload summary table
+  const ns = (config.targetNamespaces || []).join(', ') || 'N/A';
+  const labels = (config.podsUnderTestLabels || []).join(', ') || 'N/A';
+  const testPodCount = (pods.testPods || []).length;
+  const containerCount = (pods.testPods || []).reduce((sum, p) => sum + (p.containers || []).length, 0);
+  const depCount = (pods.testDeployments || []).length;
+  const stsCount = (pods.testStatefulSets || []).length;
+  const opCount = (cluster.operators || []).length;
+  const failedOps = (cluster.operators || []).filter(o => o.status === 'Failed').length;
+
+  const infoTable = [
+    [{ text: 'Property', options: { bold: true, color: WHITE, fill: { color: RH_DARK } } },
+     { text: 'Value', options: { bold: true, color: WHITE, fill: { color: RH_DARK } } }],
+    [{ text: 'Target Namespace' }, { text: ns }],
+    [{ text: 'Pod Selector' }, { text: labels }],
+    [{ text: 'Test Pods' }, { text: `${testPodCount} pods, ${containerCount} containers` }],
+    [{ text: 'Workloads' }, { text: `${depCount} Deployments, ${stsCount} StatefulSets` }],
+    [{ text: 'PDB Count' }, { text: String((pods.podDisruptionBudgets || []).length) }],
+    [{ text: 'Operators' }, { text: `${opCount} total${failedOps ? `, ${failedOps} failed` : ''}` }],
+    [{ text: 'Storage Classes' }, { text: String((cluster.storageClasses || []).length) }]
+  ];
+
+  slide.addTable(infoTable, {
+    x: 0.8, y: 1.5, w: 6, colW: [2.5, 3.5],
+    fontSize: 11, border: { pt: 0.5, color: 'E0E0E0' },
+    rowH: 0.35, autoPage: false
+  });
+
+  // Right: Hardware / SR-IOV summary
+  const sriovPolicies = hw.sriovPolicies || [];
+  if (sriovPolicies.length > 0) {
+    slide.addText('SR-IOV Network Policies', {
+      x: 7.5, y: 1.5, w: 5, h: 0.4,
+      fontSize: 13, color: RH_DARK, bold: true
+    });
+
+    const sriovTable = [
+      [{ text: 'Policy', options: { bold: true, color: WHITE, fill: { color: RH_DARK }, fontSize: 9 } },
+       { text: 'VFs', options: { bold: true, color: WHITE, fill: { color: RH_DARK }, fontSize: 9, align: 'center' } },
+       { text: 'Type', options: { bold: true, color: WHITE, fill: { color: RH_DARK }, fontSize: 9 } },
+       { text: 'NIC', options: { bold: true, color: WHITE, fill: { color: RH_DARK }, fontSize: 9 } }]
+    ];
+    for (const p of sriovPolicies) {
+      const nic = p.nicSelector || {};
+      sriovTable.push([
+        { text: p.name, options: { fontSize: 8 } },
+        { text: String(p.numVfs), options: { fontSize: 8, align: 'center' } },
+        { text: p.deviceType, options: { fontSize: 8 } },
+        { text: `${nic.vendor || ''}:${nic.deviceID || ''}`, options: { fontSize: 8 } }
+      ]);
     }
-  );
+    slide.addTable(sriovTable, {
+      x: 7.5, y: 2.0, w: 5.3, colW: [2, 0.6, 1.2, 1.5],
+      border: { pt: 0.5, color: 'E0E0E0' },
+      rowH: 0.3, autoPage: false
+    });
+  } else {
+    slide.addText('No SR-IOV policies configured', {
+      x: 7.5, y: 1.5, w: 5, h: 1,
+      fontSize: 12, color: RH_GREY, italic: true, valign: 'top'
+    });
+  }
+
+  // Bottom: Pod summary
+  const testPods = pods.testPods || [];
+  if (testPods.length > 0) {
+    const podTableY = Math.max(sriovPolicies.length > 0 ? 2.0 + (sriovPolicies.length + 1) * 0.3 + 0.3 : 3.0, 4.2);
+    slide.addText('Test Pods', {
+      x: 0.8, y: podTableY, w: 12, h: 0.4,
+      fontSize: 13, color: RH_DARK, bold: true
+    });
+
+    const podTable = [
+      [{ text: 'Pod', options: { bold: true, color: WHITE, fill: { color: RH_DARK }, fontSize: 9 } },
+       { text: 'Containers', options: { bold: true, color: WHITE, fill: { color: RH_DARK }, fontSize: 9, align: 'center' } },
+       { text: 'CPU (req/lim)', options: { bold: true, color: WHITE, fill: { color: RH_DARK }, fontSize: 9 } },
+       { text: 'Memory (req/lim)', options: { bold: true, color: WHITE, fill: { color: RH_DARK }, fontSize: 9 } },
+       { text: 'Security', options: { bold: true, color: WHITE, fill: { color: RH_DARK }, fontSize: 9 } }]
+    ];
+
+    for (const pod of testPods) {
+      const containers = pod.containers || [];
+      const cpuReqs = containers.map(c => (c.resources?.requests?.cpu) || '-').join(', ');
+      const cpuLims = containers.map(c => (c.resources?.limits?.cpu) || '-').join(', ');
+      const memReqs = containers.map(c => (c.resources?.requests?.memory) || '-').join(', ');
+      const memLims = containers.map(c => (c.resources?.limits?.memory) || '-').join(', ');
+
+      const secIssues = [];
+      if (pod.hostNetwork) secIssues.push('hostNet');
+      if (pod.hostPID) secIssues.push('hostPID');
+      const hasPrivEsc = containers.some(c => c.securityContext?.allowPrivilegeEscalation !== false);
+      if (hasPrivEsc) secIssues.push('privEsc');
+      const secText = secIssues.length > 0 ? secIssues.join(', ') : 'OK';
+      const secColor = secIssues.length > 0 ? 'DC3545' : '28A745';
+
+      podTable.push([
+        { text: pod.name, options: { fontSize: 8 } },
+        { text: String(containers.length), options: { fontSize: 8, align: 'center' } },
+        { text: `${cpuReqs} / ${cpuLims}`, options: { fontSize: 8 } },
+        { text: `${memReqs} / ${memLims}`, options: { fontSize: 8 } },
+        { text: secText, options: { fontSize: 8, color: secColor, bold: true } }
+      ]);
+    }
+
+    slide.addTable(podTable, {
+      x: 0.8, y: podTableY + 0.4, w: 12, colW: [3.5, 1, 2.5, 2.5, 2.5],
+      border: { pt: 0.5, color: 'E0E0E0' },
+      rowH: 0.35, autoPage: false
+    });
+  }
+
   addFooter(slide);
 }
 

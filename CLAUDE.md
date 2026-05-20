@@ -19,22 +19,22 @@ node scripts/fetch-catalog.js   # Refresh catalog data from upstream CATALOG.md
 
 **Backend**: Express.js server (`server/index.js`) serving static frontend + REST API.
 
-**Frontend**: Vanilla HTML/CSS/JS in `public/` — no build step.
+**Frontend**: Vanilla HTML/CSS/JS in `public/` — no build step. Dark theme with DM Sans font, gradient stat cards, accent colors (cyan/purple/pink).
 
 ### Request Flow
 
 ```
-POST /api/upload (multipart: claim, log, cluster, skipRules)
-  → claim-parser.js    → normalized test results
-  → catalog-mapper.js  → enrich with catalog data + priority (0-4)
+POST /api/upload (multipart: claim, log, priorityMapping)
+  → claim-parser.js    → normalized test results + environment extraction
+  → catalog-mapper.js  → enrich with catalog data + priority (0-4, with optional CSV/XLSX overrides)
   → skip-analyzer.js   → classify skipped tests (valid-skip / needs-review)
   → log-validator.js   → health warnings (stream-based for large files)
-  → cluster-parser.js  → topology + pods (YAML/JSON)
   → Store in memory session (30-min TTL)
-  → Return dashboard JSON
+  → Return dashboard JSON (includes environment data + flat results array)
 
 GET /api/export/pptx/:sessionId → pptx-generator.js → .pptx buffer
 GET /api/export/xlsx/:sessionId → xlsx-generator.js → .xlsx buffer
+GET /api/export/csv/:sessionId  → csv-generator.js  → .csv buffer
 
 POST /api/compare (multipart: claim_a, log_a, claim_b, log_b)
   → Parse both through same pipeline
@@ -59,13 +59,13 @@ Both implement the same interface: `save()`, `list()`, `get()`, `delete()`. Load
 
 | Module | Purpose |
 |--------|---------|
-| `server/parsers/claim-parser.js` | Parse claim.json, normalize error→failed, extract NonCompliantObjectsOut |
-| `server/parsers/catalog-mapper.js` | Enrich results with catalog descriptions, remediation, priority 0-4 |
-| `server/parsers/skip-analyzer.js` | Classify skips: built-in rules → custom rules → skip reason text analysis |
+| `server/parsers/claim-parser.js` | Parse claim.json: normalize error→failed, extract NonCompliantObjectsOut, extract environment (cluster/hardware/pods/helm) |
+| `server/parsers/catalog-mapper.js` | Enrich results with catalog descriptions, remediation, priority 0-4; accepts optional priority overrides map |
+| `server/parsers/skip-analyzer.js` | Classify skips: built-in rules → skip reason text analysis |
 | `server/parsers/log-validator.js` | Stream-based log scanning: ERROR count, probe pod missing, panics, completion |
-| `server/parsers/cluster-parser.js` | Parse K8s List / flat YAML/JSON → topology + podsByNamespace |
-| `server/generators/pptx-generator.js` | Red Hat branded slide deck using pptxgenjs |
-| `server/generators/xlsx-generator.js` | Failed case summary with priority using exceljs |
+| `server/generators/pptx-generator.js` | Red Hat branded slide deck using pptxgenjs (includes environment slide) |
+| `server/generators/xlsx-generator.js` | Failed case summary + Environment Summary worksheet using exceljs |
+| `server/generators/csv-generator.js` | Failed case CSV with environment header for Google Sheets (no dependencies) |
 | `server/data/catalog.json` | Pre-fetched certsuite catalog (102 test entries) |
 | `server/data/skip-rules.json` | Built-in valid skip reason patterns (14 rules) |
 | `server/storage/index.js` | Storage backend factory (json or sqlite via env var) |
@@ -74,17 +74,17 @@ Both implement the same interface: `save()`, `list()`, `get()`, `delete()`. Load
 | `server/routes/reports.js` | CRUD API for saving/loading/deleting reports |
 | `server/parsers/comparator.js` | Compare two parsed claim datasets: match by test ID, classify changes |
 | `server/routes/compare.js` | POST /api/compare endpoint for two-file comparison |
+| `server/routes/export-csv.js` | GET /api/export/csv/:sessionId endpoint |
 
 ### Frontend Files
 
 | File | Purpose |
 |------|---------|
 | `public/index.html` | SPA shell: upload (single/compare), dashboard, comparison, history views |
-| `public/js/app.js` | Four-view navigation (upload/dashboard/comparison/history), drag-and-drop, upload |
-| `public/js/dashboard.js` | Render header, log warnings, summary cards, category tables, test rows |
+| `public/js/app.js` | Four-view navigation (upload/dashboard/comparison/history), drag-and-drop, upload, tab switching |
+| `public/js/dashboard.js` | Render header, log warnings, summary cards, category tables, test rows, Environment tab (includes P0/P1 security summary) |
 | `public/js/filters.js` | Category dropdown, scenario dropdown, status checkboxes (AND logic) |
-| `public/js/cluster-panel.js` | Left sidebar: topology card, node list, pod list with YAML download |
-| `public/js/export.js` | Trigger PPTX/XLSX download + save report button wiring |
+| `public/js/export.js` | Trigger PPTX/XLSX/CSV download + save report button wiring |
 | `public/js/history.js` | Report history list, save/load/delete, modal and toast UI |
 | `public/js/comparison.js` | Compare mode: upload toggle, comparison view rendering, delta badges |
 
@@ -100,11 +100,18 @@ Both implement the same interface: `save()`, `list()`, `get()`, `delete()`. Load
 - **3**: PreStop hooks, pod owner type
 - **4**: One process per container, non-UBI base image
 
+### Priority Mapping Override
+Users can upload a CSV or XLSX file to override the built-in `PRIORITY_MAP` in `catalog-mapper.js`. Supports:
+- **4-column CSV**: `test_id,category,description,priority` (priority in column 4)
+- **2-column CSV**: `test_id,priority` (priority in column 2)
+- **XLSX**: First worksheet, auto-detects `test_id` and `priority` columns by header name
+
+If no file is uploaded, the built-in priority map applies. Overrides only affect tests present in the uploaded file; all other tests use defaults.
+
 ### Skip Classification
 1. Built-in rules (`server/data/skip-rules.json`) matched by testIdPattern
-2. Custom rules uploaded by user (optional JSON file)
-3. Skip reason text analysis (IPv6, SNO, no operators, performance profile)
-4. Fallback: `needs-review`
+2. Skip reason text analysis (IPv6, SNO, no operators, performance profile)
+3. Fallback: `needs-review`
 
 ### Comparison Change Classification
 
@@ -115,6 +122,31 @@ Tests matched by `id` across two runs. State ranking: passed (2) > skipped (1) >
 - **unchanged**: same normalizedState in both runs
 - **added**: test exists in new run only
 - **removed**: test exists in baseline only
+
+### Environment Data
+
+Extracted from `claim.configurations` and `claim.nodes` by `extractEnvironment()` in claim-parser.js. All sub-sections are defensively parsed — missing or malformed data results in empty arrays/objects, never parse failures.
+
+```
+environment: {
+  cluster: { operators[], storageClasses[], csiDrivers[], nodeCount }
+  hardware: { sriovPolicies[], nodesHwInfo }
+  pods: { testPods[], allPodsCount, testDeployments[], testStatefulSets[], podDisruptionBudgets[] }
+  helmCharts: [{ name, namespace, chartName, chartVersion }]
+  config: { targetNamespaces[], podsUnderTestLabels[] }
+}
+```
+
+- **operators**: Parsed from `AllOperatorsSummary` strings (format: `"Status operator: name ver: version in ns: [namespace]"`)
+- **sriovPolicies**: From `AllSriovNetworkNodePolicies` — includes NIC vendor/device ID from nicSelector
+- **nodesHwInfo**: From `nodes.nodesHwInfo` — populated when certsuite collects hardware inventory (often empty)
+- **testPods**: From `testPods` — includes container images, resource requests/limits, securityContext, tolerations
+- **helmCharts**: From `testHelmChartReleases` — chart name/version from nested `chart.metadata`
+
+Surfaced in: dashboard Environment tab, PPTX environment slide, XLSX "Environment Summary" worksheet, CSV header block.
+
+### Cluster Architecture Security Summary
+The Environment tab's "Security Test Results" section displays actual P0 and P1 certsuite test results (from `data.results` flat array) instead of manual pod-spec inspection. Test results are threaded through `renderEnvironment(env, results)` → `renderArchSummary(env, results)` and grouped by priority level with pass/fail/skip status for each test.
 
 ### Scenario Classification
 From catalog: Telco Mandatory/Optional, Non-Telco, Far-Edge, Extended

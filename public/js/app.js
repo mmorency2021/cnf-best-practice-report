@@ -11,6 +11,7 @@ let appState = {
 document.addEventListener('DOMContentLoaded', () => {
   initUploadForm();
   initDropZones();
+  initTabs();
   document.getElementById('btn-new-report')?.addEventListener('click', showUploadScreen);
 });
 
@@ -81,11 +82,8 @@ function initUploadForm() {
     const logFile = document.getElementById('log-file').files[0];
     if (logFile) formData.append('log', logFile);
 
-    const clusterFile = document.getElementById('cluster-file').files[0];
-    if (clusterFile) formData.append('cluster', clusterFile);
-
-    const skipFile = document.getElementById('skip-rules-file').files[0];
-    if (skipFile) formData.append('skipRules', skipFile);
+    const priorityFile = document.getElementById('priority-file').files[0];
+    if (priorityFile) formData.append('priorityMapping', priorityFile);
 
     try {
       const resp = await fetch('/api/upload', { method: 'POST', body: formData });
@@ -118,8 +116,27 @@ function showDashboard(data) {
 
   renderDashboard(data);
   initFilters(data);
-  renderClusterPanel(data.clusterData);
   initExportButtons(appState.sessionId);
+  switchTab('results');
+}
+
+function initTabs() {
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+  });
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  const layout = document.getElementById('dashboard-layout');
+  const envPanel = document.getElementById('environment-panel');
+  if (tab === 'environment') {
+    layout.style.display = 'none';
+    envPanel.style.display = 'block';
+  } else {
+    layout.style.display = '';
+    envPanel.style.display = 'none';
+  }
 }
 
 function showUploadScreen() {

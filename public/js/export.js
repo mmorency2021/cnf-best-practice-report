@@ -1,6 +1,7 @@
 function initExportButtons(sessionId) {
   document.getElementById('btn-export-pptx').onclick = () => downloadExport('pptx', sessionId);
   document.getElementById('btn-export-xlsx').onclick = () => downloadExport('xlsx', sessionId);
+  document.getElementById('btn-export-csv').onclick = () => downloadExport('csv', sessionId);
 
   const saveBtn = document.getElementById('btn-save-report');
   if (saveBtn) {

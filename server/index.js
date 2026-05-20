@@ -3,6 +3,7 @@ const path = require('path');
 const uploadRouter = require('./routes/upload');
 const exportPptxRouter = require('./routes/export-pptx');
 const exportXlsxRouter = require('./routes/export-xlsx');
+const exportCsvRouter = require('./routes/export-csv');
 const reportsRouter = require('./routes/reports');
 const compareRouter = require('./routes/compare');
 const store = require('./storage');
@@ -16,6 +17,7 @@ app.use(express.static(path.join(__dirname, '..', 'public')));
 app.use('/api', uploadRouter);
 app.use('/api/export', exportPptxRouter);
 app.use('/api/export', exportXlsxRouter);
+app.use('/api/export', exportCsvRouter);
 app.use('/api', reportsRouter);
 app.use('/api', compareRouter);
 

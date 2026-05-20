@@ -4,11 +4,67 @@ const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const claimParser = require('../parsers/claim-parser');
 const logValidator = require('../parsers/log-validator');
-const clusterParser = require('../parsers/cluster-parser');
 const catalogMapper = require('../parsers/catalog-mapper');
 const skipAnalyzer = require('../parsers/skip-analyzer');
 
+const fs = require('fs');
+const ExcelJS = require('exceljs');
+
 const router = express.Router();
+
+function parsePriorityCSV(filePath) {
+  const overrides = {};
+  const content = fs.readFileSync(filePath, 'utf-8');
+  const lines = content.split(/\r?\n/);
+  for (const line of lines) {
+    if (!line.trim() || line.startsWith('test_id') || line.startsWith('#')) continue;
+    const cols = line.split(',');
+    const testId = (cols[0] || '').trim();
+    const priority = parseInt((cols[3] || cols[1] || '').trim(), 10);
+    if (testId && !isNaN(priority) && priority >= 0 && priority <= 4) {
+      overrides[testId] = priority;
+    }
+  }
+  return Object.keys(overrides).length > 0 ? overrides : null;
+}
+
+async function parsePriorityXLSX(filePath) {
+  const overrides = {};
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.readFile(filePath);
+  const sheet = workbook.worksheets[0];
+  if (!sheet) return null;
+
+  let priorityCol = -1;
+  let testIdCol = 0;
+  const headerRow = sheet.getRow(1);
+  headerRow.eachCell((cell, colNumber) => {
+    const val = String(cell.value || '').toLowerCase().trim();
+    if (val === 'priority') priorityCol = colNumber;
+    if (val === 'test_id' || val === 'test id' || val === 'testid') testIdCol = colNumber;
+  });
+
+  if (priorityCol === -1) priorityCol = testIdCol + 1;
+
+  sheet.eachRow((row, rowNumber) => {
+    if (rowNumber === 1) return;
+    const testId = String(row.getCell(testIdCol).value ?? '').trim();
+    const rawVal = row.getCell(priorityCol).value;
+    const priority = parseInt(String(rawVal ?? ''), 10);
+    if (testId && !isNaN(priority) && priority >= 0 && priority <= 4) {
+      overrides[testId] = priority;
+    }
+  });
+  return Object.keys(overrides).length > 0 ? overrides : null;
+}
+
+async function parsePriorityFile(filePath, originalName) {
+  const ext = path.extname(originalName || filePath).toLowerCase();
+  if (ext === '.xlsx' || ext === '.xls') {
+    return parsePriorityXLSX(filePath);
+  }
+  return parsePriorityCSV(filePath);
+}
 
 const storage = multer.diskStorage({
   destination: path.join(__dirname, '..', 'uploads'),
@@ -23,8 +79,7 @@ const upload = multer({
 const fileFields = upload.fields([
   { name: 'claim', maxCount: 1 },
   { name: 'log', maxCount: 1 },
-  { name: 'cluster', maxCount: 1 },
-  { name: 'skipRules', maxCount: 1 }
+  { name: 'priorityMapping', maxCount: 1 }
 ]);
 
 router.post('/upload', fileFields, async (req, res) => {
@@ -39,15 +94,19 @@ router.post('/upload', fileFields, async (req, res) => {
     // 1. Parse claim
     const claimData = claimParser.parse(claimFile.path, claimFile.originalname);
 
-    // 2. Enrich with catalog
-    claimData.results = catalogMapper.enrich(claimData.results);
+    // 2. Enrich with catalog (apply priority overrides if uploaded)
+    let priorityOverrides = null;
+    const priorityFile = req.files?.priorityMapping?.[0];
+    if (priorityFile) {
+      priorityOverrides = await parsePriorityFile(priorityFile.path, priorityFile.originalname);
+    }
+    claimData.results = catalogMapper.enrich(claimData.results, priorityOverrides);
 
     // 3. Analyze skips
-    const skipRulesFile = req.files?.skipRules?.[0];
     const skipAnalysis = skipAnalyzer.analyze(
       claimData.results,
       claimData.metadata,
-      skipRulesFile?.path || null
+      null
     );
     const skipMap = {};
     for (const sa of skipAnalysis) {
@@ -72,24 +131,12 @@ router.post('/upload', fileFields, async (req, res) => {
       logValidation = await logValidator.validate(logFile.path);
     }
 
-    // 5. Parse cluster
-    let clusterData = null;
-    const clusterFile = req.files?.cluster?.[0];
-    if (clusterFile) {
-      try {
-        clusterData = clusterParser.parse(clusterFile.path);
-      } catch (err) {
-        clusterData = { error: `Failed to parse cluster file: ${err.message}` };
-      }
-    }
-
     // Store session
     const sessions = req.app.get('sessions');
     sessions.set(sessionId, {
       createdAt: Date.now(),
       claimData,
-      logValidation,
-      clusterData
+      logValidation
     });
 
     res.json({
@@ -98,8 +145,8 @@ router.post('/upload', fileFields, async (req, res) => {
       totals: claimData.totals,
       resultsBySuite: claimData.resultsBySuite,
       results: claimData.results,
-      logValidation,
-      clusterData
+      environment: claimData.environment,
+      logValidation
     });
   } catch (err) {
     console.error('Upload error:', err);

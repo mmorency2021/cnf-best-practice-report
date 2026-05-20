@@ -4,6 +4,7 @@ function renderDashboard(data) {
   renderSummaryCards(data.totals);
   renderCategorySummary(data.resultsBySuite);
   renderTestTables(data.resultsBySuite);
+  if (data.environment) renderEnvironment(data.environment, data.results || []);
 }
 
 function renderHeader(meta) {
@@ -150,7 +151,13 @@ function renderTestRows(results) {
     let detailsCell = '';
 
     if (r.normalizedState === 'failed' && r.failureDetails) {
-      detailsCell = `<div class="failure-details">${escapeHtml(truncate(r.failureDetails, 300))}</div>`;
+      let failText = '';
+      if (Array.isArray(r.failureDetails)) {
+        failText = r.failureDetails.map(d => d.reason || d.podName || d.objectType || JSON.stringify(d)).join('; ');
+      } else {
+        failText = String(r.failureDetails);
+      }
+      detailsCell = `<div class="failure-details">${escapeHtml(truncate(failText, 300))}</div>`;
       if (r.remediation) {
         detailsCell += `<div class="remediation-box" style="margin-top:4px;">${escapeHtml(r.remediation)}</div>`;
       }
@@ -197,4 +204,336 @@ function escapeHtml(str) {
 function truncate(str, max) {
   if (!str || str.length <= max) return str;
   return str.slice(0, max) + '...';
+}
+
+function renderEnvironment(env, results) {
+  renderArchSummary(env, results);
+  renderEnvConfig(env.config);
+  renderEnvCluster(env.cluster, env.config);
+  renderEnvHardware(env.hardware);
+  renderEnvPods(env.pods);
+  renderEnvHelm(env.helmCharts);
+}
+
+function renderArchSummary(env, results) {
+  const el = document.getElementById('arch-summary');
+  if (!env) { el.style.display = 'none'; return; }
+
+  const pods = env.pods || {};
+  const testPods = pods.testPods || [];
+  const cluster = env.cluster || {};
+  const hw = env.hardware || {};
+  const helmCharts = env.helmCharts || [];
+  const deps = pods.testDeployments || [];
+  const sts = pods.testStatefulSets || [];
+
+  const containerCount = testPods.reduce((s, p) => s + (p.containers || []).length, 0);
+  const totalVFs = (hw.sriovPolicies || []).reduce((s, p) => s + (p.numVfs || 0), 0);
+
+  const allResults = results || [];
+  const p0Tests = allResults.filter(r => r.priority === 0);
+  const p1Tests = allResults.filter(r => r.priority === 1);
+
+  const p0Failed = p0Tests.filter(r => r.normalizedState === 'failed').length;
+  const p1Failed = p1Tests.filter(r => r.normalizedState === 'failed').length;
+  const securityIssues = p0Failed + p1Failed;
+
+  function testShortName(id) {
+    return id.replace(/^[a-z]+-[a-z]+-/, '').split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  }
+
+  function renderSecurityItems(tests) {
+    return tests.map(r => {
+      const state = r.normalizedState;
+      const cls = state === 'passed' ? 'sec-ok' : state === 'failed' ? 'sec-warn' : 'sec-skip';
+      const icon = state === 'passed' ? '&#10003;' : state === 'failed' ? '&#10007;' : '&#9644;';
+      const label = state.charAt(0).toUpperCase() + state.slice(1);
+      return `<div class="arch-security-item ${cls}">
+        <span class="arch-check">${icon}</span>
+        ${testShortName(r.id)}: <strong>${label}</strong>
+      </div>`;
+    }).join('');
+  }
+
+  el.innerHTML = `
+    <div class="arch-card arch-info" data-target="env-pods">
+      <div class="arch-card-value">${testPods.length}</div>
+      <div class="arch-card-label">Test Pods</div>
+      <div class="arch-card-detail">${containerCount} containers | ${pods.allPodsCount || 0} total in ns</div>
+    </div>
+    <div class="arch-card arch-info" data-target="env-pods">
+      <div class="arch-card-value">${deps.length + sts.length}</div>
+      <div class="arch-card-label">Workloads</div>
+      <div class="arch-card-detail">${deps.length} deployments, ${sts.length} statefulsets</div>
+    </div>
+    <div class="arch-card arch-info" data-target="env-cluster">
+      <div class="arch-card-value">${cluster.operators ? cluster.operators.length : 0}</div>
+      <div class="arch-card-label">Operators</div>
+      <div class="arch-card-detail">${(cluster.storageClasses || []).length} storage classes</div>
+    </div>
+    <div class="arch-card arch-info" data-target="env-hardware">
+      <div class="arch-card-value">${(hw.sriovPolicies || []).length}</div>
+      <div class="arch-card-label">SR-IOV Policies</div>
+      <div class="arch-card-detail">${totalVFs} total VFs configured</div>
+    </div>
+    <div class="arch-card arch-info" data-target="env-helm">
+      <div class="arch-card-value">${helmCharts.length}</div>
+      <div class="arch-card-label">Helm Charts</div>
+      <div class="arch-card-detail">${(cluster.nodeCount || {}).total || 0} cluster nodes</div>
+    </div>
+    <div class="arch-card ${securityIssues === 0 ? 'arch-ok' : 'arch-warn'}">
+      <div class="arch-card-value">${securityIssues === 0 ? 'Clean' : securityIssues}</div>
+      <div class="arch-card-label">Security ${securityIssues === 0 ? 'Posture' : 'Findings'}</div>
+      <div class="arch-card-detail">${securityIssues === 0 ? 'All P0/P1 tests passed' : p0Failed + ' P0, ' + p1Failed + ' P1 failures'}</div>
+    </div>
+    <div class="arch-security-grid">
+      <div class="arch-security-title">Security Test Results (P0 &amp; P1)</div>
+      <div class="arch-security-items">
+        ${p0Tests.length > 0 ? `<div class="priority-section-title"><span class="sec-dot dot-p0"></span> P0 — Security Critical (${p0Tests.length})</div>` : ''}
+        ${renderSecurityItems(p0Tests)}
+        ${p1Tests.length > 0 ? `<div class="priority-section-title"><span class="sec-dot dot-p1"></span> P1 — Host Access &amp; Capabilities (${p1Tests.length})</div>` : ''}
+        ${renderSecurityItems(p1Tests)}
+        ${p0Tests.length === 0 && p1Tests.length === 0 ? '<p class="env-empty">No P0/P1 test results available</p>' : ''}
+      </div>
+    </div>`;
+
+  el.querySelectorAll('.arch-card[data-target]').forEach(card => {
+    card.addEventListener('click', () => {
+      const target = document.getElementById(card.dataset.target);
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+}
+
+function renderEnvConfig(config) {
+  const el = document.getElementById('env-config');
+  if (!config) { el.style.display = 'none'; return; }
+
+  const ns = (config.targetNamespaces || []).join(', ') || 'N/A';
+  const labels = (config.podsUnderTestLabels || []).join(', ') || 'N/A';
+
+  el.innerHTML = `
+    <div class="env-section-header">Test Configuration</div>
+    <div class="env-section-body">
+      <div class="env-kv-grid">
+        <span class="env-kv-label">Target Namespaces</span>
+        <span class="env-kv-value"><code>${escapeHtml(ns)}</code></span>
+        <span class="env-kv-label">Pod Selector Labels</span>
+        <span class="env-kv-value"><code>${escapeHtml(labels)}</code></span>
+      </div>
+    </div>`;
+}
+
+function renderEnvCluster(cluster, config) {
+  const el = document.getElementById('env-cluster');
+  if (!cluster) { el.style.display = 'none'; return; }
+
+  const ops = cluster.operators || [];
+  let opsHtml = '';
+  if (ops.length > 0) {
+    const rows = ops.map(op => {
+      const statusClass = op.status === 'Succeeded' ? 'env-badge-ok' :
+        op.status === 'Failed' ? 'env-badge-fail' : 'env-badge-warn';
+      return `<tr>
+        <td>${escapeHtml(op.name)}</td>
+        <td>${escapeHtml(op.version)}</td>
+        <td>${escapeHtml(op.namespace)}</td>
+        <td><span class="env-badge ${statusClass}">${escapeHtml(op.status)}</span></td>
+      </tr>`;
+    }).join('');
+    opsHtml = `<table class="env-table">
+      <thead><tr><th>Operator</th><th>Version</th><th>Namespace</th><th>Status</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  } else {
+    opsHtml = '<p class="env-empty">No operator data available</p>';
+  }
+
+  const scRows = (cluster.storageClasses || []).map(sc =>
+    `<tr><td>${escapeHtml(sc.name)}</td><td><code>${escapeHtml(sc.provisioner)}</code></td></tr>`
+  ).join('');
+  const scHtml = scRows
+    ? `<table class="env-table"><thead><tr><th>Storage Class</th><th>Provisioner</th></tr></thead><tbody>${scRows}</tbody></table>`
+    : '';
+
+  const csiHtml = (cluster.csiDrivers || []).length > 0
+    ? `<p style="margin-top:0.5rem;font-size:0.85rem;"><strong>CSI Drivers:</strong> ${cluster.csiDrivers.map(d => `<code>${escapeHtml(d)}</code>`).join(', ')}</p>`
+    : '';
+
+  const nodeInfo = cluster.nodeCount || {};
+  const nodeHtml = nodeInfo.total
+    ? `<p style="font-size:0.85rem;"><strong>Nodes:</strong> ${nodeInfo.total} (${(nodeInfo.names || []).join(', ')})</p>`
+    : '';
+
+  el.innerHTML = `
+    <div class="env-section-header">Cluster (${ops.length} operators)</div>
+    <div class="env-section-body">
+      ${nodeHtml}
+      ${opsHtml}
+      ${scHtml}
+      ${csiHtml}
+    </div>`;
+}
+
+function renderEnvHardware(hw) {
+  const el = document.getElementById('env-hardware');
+  if (!hw) { el.style.display = 'none'; return; }
+
+  const policies = hw.sriovPolicies || [];
+  let sriovHtml = '';
+  if (policies.length > 0) {
+    const rows = policies.map(p => {
+      const nic = p.nicSelector || {};
+      const vendor = nic.vendor || '';
+      const deviceId = nic.deviceID || '';
+      const pfs = (nic.pfNames || []).join(', ');
+      return `<tr>
+        <td>${escapeHtml(p.name)}</td>
+        <td>${escapeHtml(p.deviceType)}</td>
+        <td>${p.numVfs}</td>
+        <td><code>${escapeHtml(p.resourceName)}</code></td>
+        <td>${escapeHtml(vendor)}${deviceId ? ':' + escapeHtml(deviceId) : ''}</td>
+        <td><code>${escapeHtml(pfs)}</code></td>
+      </tr>`;
+    }).join('');
+    sriovHtml = `<table class="env-table">
+      <thead><tr><th>Policy</th><th>Device Type</th><th>VFs</th><th>Resource</th><th>NIC Vendor:ID</th><th>PF Names</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  } else {
+    sriovHtml = '<p class="env-empty">No SR-IOV policies configured</p>';
+  }
+
+  const hwInfo = hw.nodesHwInfo || {};
+  let hwInfoHtml = '';
+  if (Object.keys(hwInfo).length > 0) {
+    hwInfoHtml = '<h4 style="margin-top:1rem;">Node Hardware Info</h4>';
+    for (const [nodeName, info] of Object.entries(hwInfo)) {
+      hwInfoHtml += `<p><strong>${escapeHtml(nodeName)}</strong></p>`;
+      hwInfoHtml += `<pre style="font-size:0.8rem;background:var(--surface2);padding:0.5rem;border-radius:4px;overflow-x:auto;">${escapeHtml(JSON.stringify(info, null, 2))}</pre>`;
+    }
+  } else {
+    hwInfoHtml = '<p class="env-empty">Hardware inventory not collected in this run</p>';
+  }
+
+  el.innerHTML = `
+    <div class="env-section-header">Hardware & Networking</div>
+    <div class="env-section-body">
+      <h4 style="margin-top:0;margin-bottom:0.5rem;">SR-IOV Network Node Policies</h4>
+      ${sriovHtml}
+      ${hwInfoHtml}
+    </div>`;
+}
+
+function renderEnvPods(pods) {
+  const el = document.getElementById('env-pods');
+  if (!pods) { el.style.display = 'none'; return; }
+
+  const testPods = pods.testPods || [];
+  let podsHtml = '';
+  if (testPods.length > 0) {
+    const rows = testPods.map(pod => {
+      const containers = pod.containers || [];
+      const contSummary = containers.map(c => {
+        const res = c.resources || {};
+        const req = res.requests || {};
+        const lim = res.limits || {};
+        const cpuReq = req.cpu || '-';
+        const cpuLim = lim.cpu || '-';
+        const memReq = req.memory || '-';
+        const memLim = lim.memory || '-';
+        return `<div style="margin-bottom:0.3rem;">
+          <strong>${escapeHtml(c.name)}</strong><br>
+          <code style="font-size:0.75rem;">${escapeHtml(c.image)}</code><br>
+          <span style="font-size:0.8rem;">CPU: ${cpuReq}/${cpuLim} | Mem: ${memReq}/${memLim}</span>
+        </div>`;
+      }).join('');
+
+      const sc = containers.map(c => c.securityContext || {});
+      const hasPrivEsc = sc.some(s => s.allowPrivilegeEscalation !== false);
+      const hasCaps = sc.some(s => {
+        const caps = (s.capabilities || {}).drop || [];
+        return !caps.includes('ALL');
+      });
+      const securityHtml = `
+        <span class="${!hasPrivEsc ? 'security-ok' : 'security-warn'}">${!hasPrivEsc ? 'No privEsc' : 'privEsc!'}</span>,
+        <span class="${!hasCaps ? 'security-ok' : 'security-warn'}">${!hasCaps ? 'Caps dropped' : 'Caps!'}</span>,
+        <span class="${!pod.hostNetwork ? 'security-ok' : 'security-warn'}">${!pod.hostNetwork ? 'No hostNet' : 'hostNet!'}</span>
+      `;
+
+      return `<tr>
+        <td><strong>${escapeHtml(pod.name)}</strong><br><span style="font-size:0.8rem;color:var(--rh-grey);">${escapeHtml(pod.namespace)}</span></td>
+        <td><code style="font-size:0.8rem;">${escapeHtml(pod.nodeName)}</code></td>
+        <td>${contSummary}</td>
+        <td>${securityHtml}</td>
+        <td><span class="env-badge env-badge-ok">${escapeHtml(pod.phase)}</span></td>
+      </tr>`;
+    }).join('');
+
+    podsHtml = `<table class="env-table">
+      <thead><tr><th>Pod</th><th>Node</th><th>Containers (image, CPU req/lim, Mem req/lim)</th><th>Security</th><th>Phase</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  } else {
+    podsHtml = '<p class="env-empty">No test pod data available</p>';
+  }
+
+  const deps = pods.testDeployments || [];
+  const sts = pods.testStatefulSets || [];
+  let workloadHtml = '';
+  if (deps.length > 0 || sts.length > 0) {
+    const wRows = [
+      ...deps.map(d => `<tr><td>Deployment</td><td>${escapeHtml(d.name)}</td><td>${escapeHtml(d.namespace)}</td><td>${d.replicas}</td></tr>`),
+      ...sts.map(s => `<tr><td>StatefulSet</td><td>${escapeHtml(s.name)}</td><td>${escapeHtml(s.namespace)}</td><td>${s.replicas}</td></tr>`)
+    ].join('');
+    workloadHtml = `<h4 style="margin-top:1rem;">Workloads</h4>
+      <table class="env-table">
+        <thead><tr><th>Type</th><th>Name</th><th>Namespace</th><th>Replicas</th></tr></thead>
+        <tbody>${wRows}</tbody>
+      </table>`;
+  }
+
+  const pdbs = pods.podDisruptionBudgets || [];
+  let pdbHtml = '';
+  if (pdbs.length > 0) {
+    const pdbRows = pdbs.map(p =>
+      `<tr><td>${escapeHtml(p.name)}</td><td>${escapeHtml(p.namespace)}</td><td>${p.maxUnavailable ?? '-'}</td><td>${p.minAvailable ?? '-'}</td></tr>`
+    ).join('');
+    pdbHtml = `<h4 style="margin-top:1rem;">Pod Disruption Budgets</h4>
+      <table class="env-table">
+        <thead><tr><th>Name</th><th>Namespace</th><th>Max Unavailable</th><th>Min Available</th></tr></thead>
+        <tbody>${pdbRows}</tbody>
+      </table>`;
+  }
+
+  el.innerHTML = `
+    <div class="env-section-header">Pods & Workloads (${testPods.length} test pods, ${pods.allPodsCount} total in namespace)</div>
+    <div class="env-section-body">
+      ${podsHtml}
+      ${workloadHtml}
+      ${pdbHtml}
+    </div>`;
+}
+
+function renderEnvHelm(helmCharts) {
+  const el = document.getElementById('env-helm');
+  if (!helmCharts || helmCharts.length === 0) {
+    el.innerHTML = `
+      <div class="env-section-header">Helm Chart Releases</div>
+      <div class="env-section-body"><p class="env-empty">No Helm chart data available</p></div>`;
+    return;
+  }
+
+  const rows = helmCharts.map(h =>
+    `<tr><td>${escapeHtml(h.name)}</td><td>${escapeHtml(h.chartName)}</td><td>${escapeHtml(h.chartVersion)}</td><td>${escapeHtml(h.namespace)}</td></tr>`
+  ).join('');
+
+  el.innerHTML = `
+    <div class="env-section-header">Helm Chart Releases (${helmCharts.length})</div>
+    <div class="env-section-body">
+      <table class="env-table">
+        <thead><tr><th>Release</th><th>Chart</th><th>Version</th><th>Namespace</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
 }

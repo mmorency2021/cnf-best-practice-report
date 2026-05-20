@@ -50,6 +50,7 @@ router.get('/reports/:id', (req, res) => {
       totals: sd.claimData?.totals,
       resultsBySuite: sd.claimData?.resultsBySuite,
       results: sd.claimData?.results,
+      environment: sd.claimData?.environment,
       logValidation: sd.logValidation,
       clusterData: sd.clusterData,
       reportId: report.id,

@@ -4,6 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CNF Best Practice Report Generator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body>
@@ -63,28 +66,14 @@
           <div class="upload-card optional">
             <div class="upload-card-header">
               <span class="badge badge-optional">Optional</span>
-              <h3>Cluster Architecture</h3>
+              <h3>Priority Mapping</h3>
             </div>
-            <p>Node topology &amp; pod definitions (YAML/JSON)</p>
-            <div class="drop-zone" data-input="cluster-file">
-              <span class="drop-zone-icon">&#9881;</span>
-              <span class="drop-zone-text">Drop cluster file here or click to browse</span>
-              <span class="drop-zone-file"></span>
-              <input type="file" id="cluster-file" name="cluster" accept=".yaml,.yml,.json" class="file-input">
-            </div>
-          </div>
-
-          <div class="upload-card optional">
-            <div class="upload-card-header">
-              <span class="badge badge-optional">Optional</span>
-              <h3>Custom Skip Rules</h3>
-            </div>
-            <p>Project-specific valid skip reasons (JSON)</p>
-            <div class="drop-zone" data-input="skip-rules-file">
+            <p>Override default test priorities (CSV or Excel)</p>
+            <div class="drop-zone" data-input="priority-file">
               <span class="drop-zone-icon">&#128203;</span>
-              <span class="drop-zone-text">Drop skip rules JSON here or click to browse</span>
+              <span class="drop-zone-text">Drop priority CSV/XLSX here or click to browse</span>
               <span class="drop-zone-file"></span>
-              <input type="file" id="skip-rules-file" name="skipRules" accept=".json" class="file-input">
+              <input type="file" id="priority-file" name="priorityMapping" accept=".csv,.xlsx,.xls" class="file-input">
             </div>
           </div>
         </div>
@@ -176,7 +165,7 @@
         <div id="header-meta" class="header-meta"></div>
       </div>
       <div class="header-right">
-        <button id="btn-new-report" class="btn btn-outline" title="Upload new files">New Report</button>
+        <button id="btn-new-report" class="btn btn-outline-light" title="Upload new files">New Report</button>
       </div>
     </header>
 
@@ -187,18 +176,22 @@
       <p>Consider re-running the certsuite for more reliable results.</p>
     </div>
 
+    <!-- Tab Bar -->
+    <div class="tab-bar">
+      <button class="tab-btn active" data-tab="results">Test Results</button>
+      <button class="tab-btn" data-tab="environment">Cluster Architecture</button>
+    </div>
+
     <!-- Export Bar -->
     <div class="export-bar">
       <button id="btn-export-pptx" class="btn btn-export">Download PPTX</button>
       <button id="btn-export-xlsx" class="btn btn-export">Download Excel</button>
+      <button id="btn-export-csv" class="btn btn-export">Download CSV</button>
       <button id="btn-save-report" class="btn btn-save">Save Report</button>
     </div>
 
     <!-- Dashboard Layout -->
     <div id="dashboard-layout" class="dashboard-layout">
-      <!-- Left Panel (cluster) -->
-      <aside id="cluster-panel" class="cluster-panel" style="display:none;"></aside>
-
       <!-- Main Content -->
       <main class="main-content">
         <!-- Summary Cards -->
@@ -243,6 +236,18 @@
         <div id="test-tables" class="test-tables"></div>
       </main>
     </div>
+
+    <!-- Environment Panel -->
+    <div id="environment-panel" class="environment-panel" style="display:none;">
+      <div id="arch-summary" class="arch-summary"></div>
+      <div class="env-grid">
+        <div id="env-config" class="env-section"></div>
+        <div id="env-cluster" class="env-section"></div>
+        <div id="env-hardware" class="env-section"></div>
+        <div id="env-pods" class="env-section"></div>
+        <div id="env-helm" class="env-section"></div>
+      </div>
+    </div>
   </div>
 
   <!-- Comparison View -->
@@ -257,7 +262,7 @@
         <span class="comparison-label">New Run (B)</span>
         <div id="comp-meta-b" class="comparison-meta"></div>
       </div>
-      <button id="btn-new-compare" class="btn btn-outline" onclick="showUploadScreen()">New Report</button>
+      <button id="btn-new-compare" class="btn btn-outline-light" onclick="showUploadScreen()">New Report</button>
     </header>
 
     <div class="comparison-body">
@@ -319,7 +324,6 @@
   <script src="/js/history.js"></script>
   <script src="/js/dashboard.js"></script>
   <script src="/js/filters.js"></script>
-  <script src="/js/cluster-panel.js"></script>
   <script src="/js/export.js"></script>
   <script src="/js/comparison.js"></script>
 </body>
