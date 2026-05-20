@@ -41,10 +41,11 @@ POST /api/compare (multipart: claim_a, log_a, claim_b, log_b)
   → comparator.js → match tests by ID, classify changes
   → Return comparison JSON (deltas, per-suite diffs)
 
-POST /api/reports         → Save current session as named report
-GET  /api/reports         → List all saved reports (summary only)
-GET  /api/reports/:id     → Load saved report (injects into session for exports)
-DELETE /api/reports/:id   → Delete a saved report
+POST /api/reports              → Save current session as named report
+GET  /api/reports              → List all saved reports (summary only)
+GET  /api/reports/:id          → Load saved report (injects into session for exports)
+DELETE /api/reports/:id        → Delete a saved report
+POST /api/reports/compare      → Compare two saved reports by ID (uses comparator.js)
 ```
 
 ### Report Storage
@@ -71,7 +72,7 @@ Both implement the same interface: `save()`, `list()`, `get()`, `delete()`. Load
 | `server/storage/index.js` | Storage backend factory (json or sqlite via env var) |
 | `server/storage/json-store.js` | JSON file storage: `server/reports/{id}.json` + `_index.json` |
 | `server/storage/sqlite-store.js` | SQLite storage: `server/reports.db` with better-sqlite3 |
-| `server/routes/reports.js` | CRUD API for saving/loading/deleting reports |
+| `server/routes/reports.js` | CRUD API for saving/loading/deleting reports + compare two saved reports |
 | `server/parsers/comparator.js` | Compare two parsed claim datasets: match by test ID, classify changes |
 | `server/routes/compare.js` | POST /api/compare endpoint for two-file comparison |
 | `server/routes/export-csv.js` | GET /api/export/csv/:sessionId endpoint |
@@ -85,7 +86,7 @@ Both implement the same interface: `save()`, `list()`, `get()`, `delete()`. Load
 | `public/js/dashboard.js` | Render header, log warnings, summary cards, category tables, test rows, Environment tab (includes P0/P1 security summary) |
 | `public/js/filters.js` | Category dropdown, scenario dropdown, status checkboxes (AND logic) |
 | `public/js/export.js` | Trigger PPTX/XLSX/CSV download + save report button wiring |
-| `public/js/history.js` | Report history list, save/load/delete, modal and toast UI |
+| `public/js/history.js` | Report history list, save/load/delete, compare two saved reports, modal and toast UI |
 | `public/js/comparison.js` | Compare mode: upload toggle, comparison view rendering, delta badges |
 
 ## Data Model
@@ -113,7 +114,13 @@ If no file is uploaded, the built-in priority map applies. Overrides only affect
 2. Skip reason text analysis (IPv6, SNO, no operators, performance profile)
 3. Fallback: `needs-review`
 
-### Comparison Change Classification
+### Comparison
+
+Two ways to compare reports:
+1. **Live upload**: Upload two claim.json files via Compare Reports mode (`POST /api/compare`)
+2. **From history**: Select two saved reports with checkboxes on the Report History screen (`POST /api/reports/compare`)
+
+Both paths use `comparator.compare()` and render via the same `showComparisonView()` frontend.
 
 Tests matched by `id` across two runs. State ranking: passed (2) > skipped (1) > failed (0).
 

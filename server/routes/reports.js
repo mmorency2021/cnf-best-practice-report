@@ -1,5 +1,6 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
+const comparator = require('../parsers/comparator');
 const router = express.Router();
 
 router.post('/reports', (req, res) => {
@@ -19,6 +20,50 @@ router.post('/reports', (req, res) => {
   } catch (err) {
     console.error('Save report error:', err);
     res.status(500).json({ error: `Failed to save report: ${err.message}` });
+  }
+});
+
+router.post('/reports/compare', (req, res) => {
+  const store = req.app.get('store');
+  const sessions = req.app.get('sessions');
+  const { reportIdA, reportIdB } = req.body || {};
+
+  if (!reportIdA || !reportIdB) {
+    return res.status(400).json({ error: 'Both reportIdA and reportIdB are required' });
+  }
+
+  try {
+    const reportA = store.get(reportIdA);
+    const reportB = store.get(reportIdB);
+    if (!reportA) return res.status(404).json({ error: 'Report A not found' });
+    if (!reportB) return res.status(404).json({ error: 'Report B not found' });
+
+    const claimDataA = reportA.sessionData.claimData;
+    const claimDataB = reportB.sessionData.claimData;
+    const comparison = comparator.compare(claimDataA, claimDataB);
+
+    const sessionId = uuidv4();
+    sessions.set(sessionId, {
+      createdAt: Date.now(),
+      type: 'comparison',
+      claimDataA,
+      claimDataB,
+      comparison
+    });
+
+    res.json({
+      sessionId,
+      metadataA: claimDataA.metadata,
+      metadataB: claimDataB.metadata,
+      totalsA: claimDataA.totals,
+      totalsB: claimDataB.totals,
+      ...comparison,
+      logValidationA: reportA.sessionData.logValidation,
+      logValidationB: reportB.sessionData.logValidation
+    });
+  } catch (err) {
+    console.error('Compare reports error:', err);
+    res.status(500).json({ error: `Comparison failed: ${err.message}` });
   }
 });
 

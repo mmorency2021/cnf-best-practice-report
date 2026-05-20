@@ -838,6 +838,12 @@ body {
 .history-error { color: var(--color-failed); }
 .history-loading { text-align: center; color: var(--muted); padding: 2rem; }
 
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
 .history-card {
   background: var(--surface);
   border-radius: var(--radius);
@@ -845,10 +851,21 @@ body {
   box-shadow: 0 2px 12px rgba(0,0,0,0.15);
   padding: 1rem 1.25rem;
   display: flex;
-  justify-content: space-between;
   align-items: center;
   gap: 1rem;
   transition: all 0.18s ease;
+}
+
+.history-checkbox {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.history-checkbox input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--accent);
 }
 
 .history-card:hover { box-shadow: var(--shadow); transform: translateY(-1px); }

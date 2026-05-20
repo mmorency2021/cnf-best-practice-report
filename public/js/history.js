@@ -1,3 +1,53 @@
+const historySelection = new Set();
+
+function toggleHistorySelect(reportId, checkbox) {
+  if (checkbox.checked) {
+    if (historySelection.size >= 2) {
+      checkbox.checked = false;
+      showToast('Select exactly 2 reports to compare', 'error');
+      return;
+    }
+    historySelection.add(reportId);
+  } else {
+    historySelection.delete(reportId);
+  }
+  updateCompareButton();
+}
+
+function updateCompareButton() {
+  const btn = document.getElementById('btn-compare-history');
+  if (!btn) return;
+  btn.style.display = historySelection.size > 0 ? '' : 'none';
+  btn.disabled = historySelection.size !== 2;
+  btn.textContent = `Compare Selected (${historySelection.size})`;
+}
+
+async function compareFromHistory() {
+  const ids = [...historySelection];
+  const btn = document.getElementById('btn-compare-history');
+  btn.disabled = true;
+  btn.textContent = 'Comparing...';
+
+  try {
+    const resp = await fetch('/api/reports/compare', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reportIdA: ids[0], reportIdB: ids[1] })
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || 'Comparison failed');
+
+    appState.sessionId = data.sessionId;
+    appState.comparisonData = data;
+    historySelection.clear();
+    showComparisonView(data);
+  } catch (err) {
+    showToast('Comparison failed: ' + err.message, 'error');
+  } finally {
+    updateCompareButton();
+  }
+}
+
 async function loadReportHistory() {
   const listEl = document.getElementById('history-list');
   const storageInfo = document.getElementById('storage-info');
@@ -16,6 +66,9 @@ async function loadReportHistory() {
       return;
     }
 
+    historySelection.clear();
+    updateCompareButton();
+
     listEl.innerHTML = '';
     reports.forEach(report => {
       const card = document.createElement('div');
@@ -27,6 +80,9 @@ async function loadReportHistory() {
 
       const totals = report.totals || {};
       card.innerHTML = `
+        <label class="history-checkbox">
+          <input type="checkbox" onchange="toggleHistorySelect('${report.id}', this)">
+        </label>
         <div class="history-card-info">
           <h3 class="history-card-title">${escapeHtml(report.name)}</h3>
           <div class="history-card-meta">
