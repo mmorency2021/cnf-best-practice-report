@@ -203,8 +203,8 @@ function renderComparisonBySuite(comparisonBySuite) {
           <thead>
             <tr>
               <th>Test ID</th>
-              <th>Baseline</th>
-              <th>New Run</th>
+              <th>Report A</th>
+              <th>Report B</th>
               <th>Change</th>
               <th>Details</th>
             </tr>

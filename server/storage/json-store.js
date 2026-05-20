@@ -3,7 +3,7 @@ const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const BaseStore = require('./base-store');
 
-const REPORTS_DIR = path.join(__dirname, '..', 'reports');
+const REPORTS_DIR = process.env.REPORTS_DIR || path.join(__dirname, '..', 'reports');
 const INDEX_FILE = path.join(REPORTS_DIR, '_index.json');
 
 class JsonStore extends BaseStore {

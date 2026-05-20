@@ -1,4 +1,4 @@
-const backend = process.env.STORAGE_BACKEND || 'json';
+const backend = process.env.STORAGE_BACKEND || 'sqlite';
 
 function createStore() {
   if (backend === 'sqlite') {

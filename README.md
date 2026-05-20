@@ -74,7 +74,7 @@ The dashboard renders automatically after upload. Use the filters to focus on sp
 
 ### Compare Mode
 
-Click "Compare Reports" on the upload screen to compare two certsuite runs. Upload a baseline (A) and new run (B) to see which tests regressed, improved, or stayed the same.
+Click "Compare Reports" on the upload screen to compare two certsuite runs side-by-side (Report A vs Report B) to see which tests regressed, improved, or stayed the same. You can also compare two saved reports from the Report History screen by selecting them with checkboxes.
 
 ## File Inputs
 
@@ -138,6 +138,100 @@ Failed case data with environment header block, suitable for import into Google 
 | 2 | Cluster role bindings, scheduling, tolerations, probes, SSH daemons |
 | 3 | PreStop hooks, pod owner type |
 | 4 | One process per container, non-UBI base image |
+
+## Server Deployment
+
+For running on a shared server where a team can access the tool.
+
+### Basic Setup
+
+```bash
+npm install
+PORT=3000 npm start
+```
+
+Open port 3000 (or your chosen port) in your firewall.
+
+### Report Storage
+
+Reports are stored in a SQLite database (`server/reports.db` by default). On a server, you should store the database outside the application directory so it survives redeployments and updates.
+
+#### Option 1: Environment Variable (Recommended)
+
+Point `REPORTS_DB_PATH` to a persistent location:
+
+```bash
+# Create a persistent data directory
+sudo mkdir -p /var/data/cnf-reports
+sudo chown $USER:$USER /var/data/cnf-reports
+
+# Start with external DB path
+REPORTS_DB_PATH=/var/data/cnf-reports/reports.db npm start
+```
+
+#### Option 2: Symlink
+
+Create a symlink from the default path to a persistent location:
+
+```bash
+# Create a persistent data directory
+sudo mkdir -p /var/data/cnf-reports
+sudo chown $USER:$USER /var/data/cnf-reports
+
+# If a reports.db already exists in the app, move it first
+mv server/reports.db /var/data/cnf-reports/reports.db
+
+# Create the symlink
+ln -s /var/data/cnf-reports/reports.db server/reports.db
+```
+
+Now `npm start` works without any env vars and the database lives outside the app directory.
+
+#### Option 3: Docker / Podman Volume Mount
+
+```bash
+# Mount a host directory for the database
+podman run -p 3000:3000 \
+  -v /var/data/cnf-reports:/data:Z \
+  -e REPORTS_DB_PATH=/data/reports.db \
+  cnf-report-generator
+```
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | `3000` | Server listen port |
+| `STORAGE_BACKEND` | `sqlite` | Storage backend (`sqlite` or `json`) |
+| `REPORTS_DB_PATH` | `server/reports.db` | SQLite database file path |
+| `REPORTS_DIR` | `server/reports/` | JSON storage directory (only when `STORAGE_BACKEND=json`) |
+
+### Systemd Service (Linux)
+
+To run as a background service:
+
+```ini
+# /etc/systemd/system/cnf-report.service
+[Unit]
+Description=CNF Best Practice Report Generator
+After=network.target
+
+[Service]
+Type=simple
+User=cnfreport
+WorkingDirectory=/opt/cnf-report-generator
+Environment=PORT=3000
+Environment=REPORTS_DB_PATH=/var/data/cnf-reports/reports.db
+ExecStart=/usr/bin/node server/index.js
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl enable --now cnf-report.service
+```
 
 ## Updating the Catalog
 

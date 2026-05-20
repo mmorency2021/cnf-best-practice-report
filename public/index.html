@@ -93,13 +93,13 @@
       <form id="compare-form" enctype="multipart/form-data" style="display:none;">
         <div class="compare-grid">
           <div class="compare-panel">
-            <h3 class="compare-panel-title">Baseline (A)</h3>
+            <h3 class="compare-panel-title">Report A</h3>
             <div class="upload-card required">
               <div class="upload-card-header">
                 <span class="badge badge-required">Required</span>
                 <h3>claim.json</h3>
               </div>
-              <p>Baseline certsuite results</p>
+              <p>First certsuite results</p>
               <div class="drop-zone" data-input="claim-file-a">
                 <span class="drop-zone-icon">&#128196;</span>
                 <span class="drop-zone-text">Drop claim.json here or click to browse</span>
@@ -121,13 +121,13 @@
             </div>
           </div>
           <div class="compare-panel">
-            <h3 class="compare-panel-title">New Run (B)</h3>
+            <h3 class="compare-panel-title">Report B</h3>
             <div class="upload-card required">
               <div class="upload-card-header">
                 <span class="badge badge-required">Required</span>
                 <h3>claim.json</h3>
               </div>
-              <p>New certsuite results</p>
+              <p>Second certsuite results</p>
               <div class="drop-zone" data-input="claim-file-b">
                 <span class="drop-zone-icon">&#128196;</span>
                 <span class="drop-zone-text">Drop claim.json here or click to browse</span>
@@ -258,12 +258,12 @@
   <div id="comparison-screen" class="comparison-screen" style="display:none;">
     <header class="comparison-header">
       <div class="comparison-header-col">
-        <span class="comparison-label">Baseline (A)</span>
+        <span class="comparison-label">Report A</span>
         <div id="comp-meta-a" class="comparison-meta"></div>
       </div>
       <div class="comparison-header-vs">vs</div>
       <div class="comparison-header-col">
-        <span class="comparison-label">New Run (B)</span>
+        <span class="comparison-label">Report B</span>
         <div id="comp-meta-b" class="comparison-meta"></div>
       </div>
       <button id="btn-new-compare" class="btn btn-outline-light" onclick="showUploadScreen()">New Report</button>

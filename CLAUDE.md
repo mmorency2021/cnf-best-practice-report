@@ -10,8 +10,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 npm install              # Install dependencies
-npm start                # Start server on port 3000 (or PORT env)
-STORAGE_BACKEND=sqlite npm start  # Use SQLite instead of JSON file storage
+npm start                # Start server on port 3000 (or PORT env), uses SQLite by default
+STORAGE_BACKEND=json npm start    # Use JSON file storage instead of SQLite
 node scripts/fetch-catalog.js   # Refresh catalog data from upstream CATALOG.md
 ```
 
@@ -51,8 +51,8 @@ POST /api/reports/compare      → Compare two saved reports by ID (uses compara
 ### Report Storage
 
 Persistent storage backend selected via `STORAGE_BACKEND` env var:
-- `json` (default): Individual JSON files in `server/reports/` with `_index.json` manifest
-- `sqlite`: Single `server/reports.db` file using `better-sqlite3` (WAL mode)
+- `sqlite` (default): Single DB file using `better-sqlite3` (WAL mode). Path configurable via `REPORTS_DB_PATH` (default: `server/reports.db`)
+- `json`: Individual JSON files. Directory configurable via `REPORTS_DIR` (default: `server/reports/`)
 
 Both implement the same interface: `save()`, `list()`, `get()`, `delete()`. Loading a saved report injects it into the in-memory sessions Map so export routes work without modification.
 

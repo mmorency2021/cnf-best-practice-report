@@ -2,7 +2,7 @@ const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const BaseStore = require('./base-store');
 
-const DB_PATH = path.join(__dirname, '..', 'reports.db');
+const DB_PATH = process.env.REPORTS_DB_PATH || path.join(__dirname, '..', 'reports.db');
 
 class SqliteStore extends BaseStore {
   constructor() {
