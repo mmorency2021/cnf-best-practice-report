@@ -3,6 +3,8 @@ const path = require('path');
 const uploadRouter = require('./routes/upload');
 const exportPptxRouter = require('./routes/export-pptx');
 const exportXlsxRouter = require('./routes/export-xlsx');
+const reportsRouter = require('./routes/reports');
+const store = require('./storage');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -13,6 +15,7 @@ app.use(express.static(path.join(__dirname, '..', 'public')));
 app.use('/api', uploadRouter);
 app.use('/api/export', exportPptxRouter);
 app.use('/api/export', exportXlsxRouter);
+app.use('/api', reportsRouter);
 
 const sessions = new Map();
 const SESSION_TTL = 30 * 60 * 1000;
@@ -28,6 +31,7 @@ function cleanupSessions() {
 setInterval(cleanupSessions, 5 * 60 * 1000);
 
 app.set('sessions', sessions);
+app.set('store', store);
 
 app.listen(PORT, () => {
   console.log(`CNF Best Practice Report Generator running at http://localhost:${PORT}`);

@@ -8,6 +8,15 @@
 </head>
 <body>
 
+  <!-- Navigation Bar -->
+  <nav id="app-nav" class="app-nav">
+    <div class="nav-brand">CNF Best Practice Report Generator</div>
+    <div class="nav-links">
+      <button id="nav-upload" class="nav-link active" onclick="showUploadScreen()">New Report</button>
+      <button id="nav-history" class="nav-link" onclick="showHistoryScreen()">Report History</button>
+    </div>
+  </nav>
+
   <!-- Upload Screen -->
   <div id="upload-screen" class="upload-screen">
     <div class="upload-container">
@@ -110,6 +119,7 @@
     <div class="export-bar">
       <button id="btn-export-pptx" class="btn btn-export">Download PPTX</button>
       <button id="btn-export-xlsx" class="btn btn-export">Download Excel</button>
+      <button id="btn-save-report" class="btn btn-save">Save Report</button>
     </div>
 
     <!-- Dashboard Layout -->
@@ -163,7 +173,35 @@
     </div>
   </div>
 
+  <!-- History Screen -->
+  <div id="history-screen" class="history-screen" style="display:none;">
+    <div class="history-container">
+      <h2>Saved Reports</h2>
+      <div class="history-storage-info" id="storage-info"></div>
+      <div id="history-list" class="history-list">
+        <p class="history-empty">No saved reports yet. Upload and analyze results, then save them for future reference.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Save Report Modal -->
+  <div id="save-modal" class="modal-overlay" style="display:none;">
+    <div class="modal-card">
+      <h3>Save Report</h3>
+      <label for="report-name-input">Report Name</label>
+      <input type="text" id="report-name-input" class="modal-input" placeholder="e.g., vDUCNF00 - May 2026">
+      <div class="modal-actions">
+        <button id="save-modal-cancel" class="btn btn-outline-dark">Cancel</button>
+        <button id="save-modal-confirm" class="btn btn-primary">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast" style="display:none;"></div>
+
   <script src="/js/app.js"></script>
+  <script src="/js/history.js"></script>
   <script src="/js/dashboard.js"></script>
   <script src="/js/filters.js"></script>
   <script src="/js/cluster-panel.js"></script>

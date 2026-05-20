@@ -5,4 +5,7 @@ server/uploads/*
 *.swp
 tmp/
 .env
+server/reports/*
+!server/reports/.gitkeep
+server/reports.db
 .claude/

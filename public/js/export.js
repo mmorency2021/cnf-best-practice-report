@@ -1,6 +1,18 @@
 function initExportButtons(sessionId) {
   document.getElementById('btn-export-pptx').onclick = () => downloadExport('pptx', sessionId);
   document.getElementById('btn-export-xlsx').onclick = () => downloadExport('xlsx', sessionId);
+
+  const saveBtn = document.getElementById('btn-save-report');
+  if (saveBtn) {
+    if (appState.reportId) {
+      saveBtn.textContent = 'Saved';
+      saveBtn.disabled = true;
+    } else {
+      saveBtn.textContent = 'Save Report';
+      saveBtn.disabled = false;
+      saveBtn.onclick = () => openSaveModal();
+    }
+  }
 }
 
 function downloadExport(type, sessionId) {

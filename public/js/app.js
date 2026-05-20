@@ -1,6 +1,9 @@
 let appState = {
   sessionId: null,
-  data: null
+  data: null,
+  currentView: 'upload',
+  reportId: null,
+  reportName: null
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -89,6 +92,8 @@ function initUploadForm() {
 
       appState.sessionId = data.sessionId;
       appState.data = data;
+      appState.reportId = null;
+      appState.reportName = null;
       showDashboard(data);
     } catch (err) {
       errorDiv.textContent = err.message;
@@ -103,7 +108,11 @@ function initUploadForm() {
 
 function showDashboard(data) {
   document.getElementById('upload-screen').style.display = 'none';
+  document.getElementById('history-screen').style.display = 'none';
   document.getElementById('dashboard').style.display = 'block';
+  appState.currentView = 'dashboard';
+  updateNavState();
+
   renderDashboard(data);
   initFilters(data);
   renderClusterPanel(data.clusterData);
@@ -112,6 +121,7 @@ function showDashboard(data) {
 
 function showUploadScreen() {
   document.getElementById('dashboard').style.display = 'none';
+  document.getElementById('history-screen').style.display = 'none';
   document.getElementById('upload-screen').style.display = 'flex';
   document.getElementById('upload-form').reset();
   document.querySelectorAll('.drop-zone').forEach(z => {
@@ -122,4 +132,34 @@ function showUploadScreen() {
   checkUploadReady();
   appState.sessionId = null;
   appState.data = null;
+  appState.reportId = null;
+  appState.reportName = null;
+  appState.currentView = 'upload';
+  updateNavState();
+}
+
+function showHistoryScreen() {
+  document.getElementById('upload-screen').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'none';
+  document.getElementById('history-screen').style.display = 'block';
+  appState.currentView = 'history';
+  updateNavState();
+  loadReportHistory();
+}
+
+function updateNavState() {
+  document.querySelectorAll('.nav-link').forEach(btn => btn.classList.remove('active'));
+  if (appState.currentView === 'upload' || appState.currentView === 'dashboard') {
+    document.getElementById('nav-upload')?.classList.add('active');
+  } else if (appState.currentView === 'history') {
+    document.getElementById('nav-history')?.classList.add('active');
+  }
+}
+
+function showToast(message, type) {
+  const toast = document.getElementById('toast');
+  toast.textContent = message;
+  toast.className = 'toast toast-' + (type || 'success');
+  toast.style.display = 'block';
+  setTimeout(() => { toast.style.display = 'none'; }, 3000);
 }

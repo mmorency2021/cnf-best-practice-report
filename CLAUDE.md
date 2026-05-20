@@ -11,6 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 npm install              # Install dependencies
 npm start                # Start server on port 3000 (or PORT env)
+STORAGE_BACKEND=sqlite npm start  # Use SQLite instead of JSON file storage
 node scripts/fetch-catalog.js   # Refresh catalog data from upstream CATALOG.md
 ```
 
@@ -34,7 +35,20 @@ POST /api/upload (multipart: claim, log, cluster, skipRules)
 
 GET /api/export/pptx/:sessionId → pptx-generator.js → .pptx buffer
 GET /api/export/xlsx/:sessionId → xlsx-generator.js → .xlsx buffer
+
+POST /api/reports         → Save current session as named report
+GET  /api/reports         → List all saved reports (summary only)
+GET  /api/reports/:id     → Load saved report (injects into session for exports)
+DELETE /api/reports/:id   → Delete a saved report
 ```
+
+### Report Storage
+
+Persistent storage backend selected via `STORAGE_BACKEND` env var:
+- `json` (default): Individual JSON files in `server/reports/` with `_index.json` manifest
+- `sqlite`: Single `server/reports.db` file using `better-sqlite3` (WAL mode)
+
+Both implement the same interface: `save()`, `list()`, `get()`, `delete()`. Loading a saved report injects it into the in-memory sessions Map so export routes work without modification.
 
 ### Key Modules
 
@@ -49,17 +63,22 @@ GET /api/export/xlsx/:sessionId → xlsx-generator.js → .xlsx buffer
 | `server/generators/xlsx-generator.js` | Failed case summary with priority using exceljs |
 | `server/data/catalog.json` | Pre-fetched certsuite catalog (102 test entries) |
 | `server/data/skip-rules.json` | Built-in valid skip reason patterns (14 rules) |
+| `server/storage/index.js` | Storage backend factory (json or sqlite via env var) |
+| `server/storage/json-store.js` | JSON file storage: `server/reports/{id}.json` + `_index.json` |
+| `server/storage/sqlite-store.js` | SQLite storage: `server/reports.db` with better-sqlite3 |
+| `server/routes/reports.js` | CRUD API for saving/loading/deleting reports |
 
 ### Frontend Files
 
 | File | Purpose |
 |------|---------|
-| `public/index.html` | SPA shell: upload screen + dashboard |
-| `public/js/app.js` | Upload flow, drag-and-drop, form submission |
+| `public/index.html` | SPA shell: upload, dashboard, history views + save modal |
+| `public/js/app.js` | Three-view navigation (upload/dashboard/history), drag-and-drop, upload |
 | `public/js/dashboard.js` | Render header, log warnings, summary cards, category tables, test rows |
 | `public/js/filters.js` | Category dropdown, scenario dropdown, status checkboxes (AND logic) |
 | `public/js/cluster-panel.js` | Left sidebar: topology card, node list, pod list with YAML download |
-| `public/js/export.js` | Trigger PPTX/XLSX download via GET to server endpoints |
+| `public/js/export.js` | Trigger PPTX/XLSX download + save report button wiring |
+| `public/js/history.js` | Report history list, save/load/delete, modal and toast UI |
 
 ## Data Model
 
