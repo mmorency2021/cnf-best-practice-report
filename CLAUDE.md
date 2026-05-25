@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**CNF Best Practice Report Generator** — a Node.js web application that parses Red Hat Best Practices Test Suite for Kubernetes (certsuite) output and produces an interactive dashboard with downloadable PPTX and XLSX reports. The user is a telco engineer on OpenShift Container Platform (OCP) analyzing partner CNF workload compliance.
+**CNF Best Practice Report Generator** — a Node.js web application that parses Red Hat Best Practices Test Suite for Kubernetes (certsuite) output and produces an interactive dashboard with downloadable PPTX, XLSX, and HTML reports. The user is a telco engineer on OpenShift Container Platform (OCP) analyzing partner CNF workload compliance.
 
 ## Commands
 
@@ -35,6 +35,7 @@ POST /api/upload (multipart: claim, log, priorityMapping)
 GET /api/export/pptx/:sessionId → pptx-generator.js → .pptx buffer
 GET /api/export/xlsx/:sessionId → xlsx-generator.js → .xlsx buffer
 GET /api/export/csv/:sessionId  → csv-generator.js  → .csv buffer
+GET /api/export/html/:sessionId → html-generator.js → self-contained .html file
 
 POST /api/compare (multipart: claim_a, log_a, claim_b, log_b)
   → Parse both through same pipeline
@@ -67,6 +68,7 @@ Both implement the same interface: `save()`, `list()`, `get()`, `delete()`. Load
 | `server/generators/pptx-generator.js` | Red Hat branded slide deck using pptxgenjs (includes environment slide, table-based failed-by-category) |
 | `server/generators/xlsx-generator.js` | Failed Case Summary + Environment Summary + All Tests worksheets using exceljs |
 | `server/generators/csv-generator.js` | Failed case CSV with environment header for Google Sheets (no dependencies) |
+| `server/generators/html-generator.js` | Self-contained HTML dashboard export with dark/light theme toggle, inlined CSS/JS, filters, and back-to-top navigation |
 | `server/data/catalog.json` | Pre-fetched certsuite catalog (102 test entries) |
 | `server/data/skip-rules.json` | Built-in valid skip reason patterns (14 rules) |
 | `server/storage/index.js` | Storage backend factory (json or sqlite via env var) |
@@ -76,6 +78,7 @@ Both implement the same interface: `save()`, `list()`, `get()`, `delete()`. Load
 | `server/parsers/comparator.js` | Compare two parsed claim datasets: match by test ID, classify changes |
 | `server/routes/compare.js` | POST /api/compare endpoint for two-file comparison |
 | `server/routes/export-csv.js` | GET /api/export/csv/:sessionId endpoint |
+| `server/routes/export-html.js` | GET /api/export/html/:sessionId endpoint |
 
 ### Frontend Files
 
@@ -85,7 +88,7 @@ Both implement the same interface: `save()`, `list()`, `get()`, `delete()`. Load
 | `public/js/app.js` | Four-view navigation (upload/dashboard/comparison/history), drag-and-drop, upload, tab switching |
 | `public/js/dashboard.js` | Render header, log warnings, summary cards, category tables, test rows, Environment tab (includes P0/P1 security summary) |
 | `public/js/filters.js` | Category dropdown, scenario dropdown, status checkboxes (AND logic) |
-| `public/js/export.js` | Trigger PPTX/XLSX/CSV download + save report button wiring |
+| `public/js/export.js` | Trigger PPTX/XLSX/CSV/HTML download + save report button wiring |
 | `public/js/history.js` | Report history list, save/load/delete, compare two saved reports, modal and toast UI |
 | `public/js/comparison.js` | Compare mode: upload toggle, comparison view rendering, delta badges |
 
@@ -159,6 +162,18 @@ Surfaced in: dashboard Environment tab, PPTX environment slide, XLSX "Environmen
 
 ### PPTX Failed-by-Category Slides
 Table-based layout with 3 columns (Test ID, Category, Priority), 10 rows per slide, sorted by category then priority. Uses same styling as Failed Test Case Details slides.
+
+### HTML Export
+Self-contained single `.html` file (~400KB) that mirrors the web dashboard. Opens offline from disk with no external dependencies (Google Fonts replaced with system font stack). Features:
+- **Two tabs**: Test Results (summary cards, filters, category table, collapsible test suites) and Cluster Architecture (arch summary, environment sections)
+- **Dark/light theme toggle**: Moon/sun button in nav bar, persisted to `localStorage`
+- **Interactive filters**: Category dropdown, scenario dropdown, status checkboxes — all functional via inline JS
+- **Back-to-top button**: Floating button appears after scrolling 400px
+- **Embedded data**: `resultsBySuite` JSON embedded in inline script for dynamic filter updates
+
+The generator (`html-generator.js`) ports all `dashboard.js` render functions to server-side string assembly, reads and inlines `public/css/styles.css`, and appends light theme CSS overrides via `[data-theme="light"]` selectors.
+
+Surfaced in: dashboard Environment tab, PPTX environment slide, XLSX "Environment Summary" worksheet, CSV header block, HTML export Environment tab.
 
 ### Log Validation
 The log validator (`log-validator.js`) checks for:

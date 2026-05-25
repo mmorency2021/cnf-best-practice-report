@@ -54,6 +54,21 @@ Tests are classified into scenarios that determine which are mandatory for certi
 - **CSV Export** — Failed case data with environment header for Google Sheets
 - **Large File Support** — Handles claim.json and log files up to 1GB
 
+## Prerequisites
+
+- **Node.js 16+** (required by `better-sqlite3` native module)
+- **npm** (comes with Node.js)
+- **C/C++ build tools** — needed to compile `better-sqlite3`:
+  - **RHEL/CentOS/Fedora**: `yum install gcc-c++ make python3`
+  - **Ubuntu/Debian**: `apt install build-essential python3`
+  - **macOS**: `xcode-select --install`
+
+Verify your Node.js version before installing:
+
+```bash
+node --version   # must be v16.0.0 or higher
+```
+
 ## Quick Start
 
 ```bash
