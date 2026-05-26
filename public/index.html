@@ -270,6 +270,11 @@
       <button id="btn-new-compare" class="btn btn-outline-light" onclick="showUploadScreen()">New Report</button>
     </header>
 
+    <div class="export-bar">
+      <button id="btn-comp-export-xlsx" class="btn btn-export">Download Excel</button>
+      <button id="btn-comp-export-html" class="btn btn-export">Download HTML</button>
+    </div>
+
     <div class="comparison-body">
       <div id="delta-summary" class="delta-summary"></div>
       <div id="comparison-totals" class="comparison-totals"></div>
@@ -327,6 +332,9 @@
 
   <!-- Toast Notification -->
   <div id="toast" class="toast" style="display:none;"></div>
+
+  <!-- Back to Top -->
+  <button class="back-to-top" id="back-to-top" title="Back to top">&#8679;</button>
 
   <script src="/js/app.js"></script>
   <script src="/js/history.js"></script>

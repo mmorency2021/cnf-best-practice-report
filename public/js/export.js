@@ -17,12 +17,34 @@ function initExportButtons(sessionId) {
   }
 }
 
-function downloadExport(type, sessionId) {
+function initComparisonExportButtons(sessionId) {
+  const xlsxBtn = document.getElementById('btn-comp-export-xlsx');
+  const htmlBtn = document.getElementById('btn-comp-export-html');
+  if (xlsxBtn) xlsxBtn.onclick = () => downloadExport('xlsx', sessionId);
+  if (htmlBtn) htmlBtn.onclick = () => downloadExport('html', sessionId);
+}
+
+async function downloadExport(type, sessionId) {
   if (!sessionId) return;
-  const a = document.createElement('a');
-  a.href = `/api/export/${type}/${sessionId}`;
-  a.download = '';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+  try {
+    const resp = await fetch(`/api/export/${type}/${sessionId}`);
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({ error: 'Export failed' }));
+      throw new Error(err.error || 'Export failed');
+    }
+    const blob = await resp.blob();
+    const disposition = resp.headers.get('Content-Disposition') || '';
+    const match = disposition.match(/filename="?([^"]+)"?/);
+    const filename = match ? match[1] : `report.${type}`;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    showToast('Export failed: ' + err.message, 'error');
+  }
 }

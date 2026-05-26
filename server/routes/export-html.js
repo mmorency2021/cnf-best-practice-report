@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const htmlGenerator = require('../generators/html-generator');
+const comparisonHtmlGenerator = require('../generators/comparison-html-generator');
 
 router.get('/html/:sessionId', (req, res) => {
   const sessions = req.app.get('sessions');
@@ -8,6 +9,16 @@ router.get('/html/:sessionId', (req, res) => {
   if (!session) return res.status(404).json({ error: 'Session not found or expired' });
 
   try {
+    if (session.type === 'comparison') {
+      const buffer = comparisonHtmlGenerator.generate(session);
+      const vA = session.claimDataA?.metadata?.cnfVersion || 'ReportA';
+      const vB = session.claimDataB?.metadata?.cnfVersion || 'ReportB';
+      const filename = `${vA}-vs-${vB}-comparison.html`;
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      return res.send(buffer);
+    }
+
     const buffer = htmlGenerator.generate(session.claimData);
     const filename = `${session.claimData.metadata.cnfVersion || 'CNF'}-best-practice-report.html`;
     res.setHeader('Content-Type', 'text/html; charset=utf-8');

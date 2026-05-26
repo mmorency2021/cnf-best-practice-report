@@ -833,4 +833,4 @@ function generate(claimData) {
   return Buffer.from(html, 'utf-8');
 }
 
-module.exports = { generate };
+module.exports = { generate, escapeHtml, formatSuiteName, loadCss, buildLightThemeCss };

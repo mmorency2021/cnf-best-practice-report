@@ -100,6 +100,7 @@ function showComparisonView(data) {
   renderComparisonTotals(data.totalsA, data.totalsB, data.deltaTotals);
   renderComparisonBySuite(data.comparisonBySuite);
   initComparisonFilters(data.comparisonBySuite);
+  initComparisonExportButtons(appState.sessionId);
 }
 
 function renderComparisonHeader(metaA, metaB) {

@@ -33,9 +33,9 @@ POST /api/upload (multipart: claim, log, priorityMapping)
   → Return dashboard JSON (includes environment data + flat results array)
 
 GET /api/export/pptx/:sessionId → pptx-generator.js → .pptx buffer
-GET /api/export/xlsx/:sessionId → xlsx-generator.js → .xlsx buffer
+GET /api/export/xlsx/:sessionId → xlsx-generator.js (or comparison-xlsx-generator.js) → .xlsx buffer
 GET /api/export/csv/:sessionId  → csv-generator.js  → .csv buffer
-GET /api/export/html/:sessionId → html-generator.js → self-contained .html file
+GET /api/export/html/:sessionId → html-generator.js (or comparison-html-generator.js) → self-contained .html file
 
 POST /api/compare (multipart: claim_a, log_a, claim_b, log_b)
   → Parse both through same pipeline
@@ -68,7 +68,9 @@ Both implement the same interface: `save()`, `list()`, `get()`, `delete()`. Load
 | `server/generators/pptx-generator.js` | Red Hat branded slide deck using pptxgenjs (includes environment slide, table-based failed-by-category) |
 | `server/generators/xlsx-generator.js` | Failed Case Summary + Environment Summary + All Tests worksheets using exceljs |
 | `server/generators/csv-generator.js` | Failed case CSV with environment header for Google Sheets (no dependencies) |
-| `server/generators/html-generator.js` | Self-contained HTML dashboard export with dark/light theme toggle, inlined CSS/JS, filters, and back-to-top navigation |
+| `server/generators/html-generator.js` | Self-contained HTML dashboard export with dark/light theme toggle, inlined CSS/JS, filters, and back-to-top navigation. Also exports utility functions (`escapeHtml`, `formatSuiteName`, `loadCss`, `buildLightThemeCss`) for reuse by comparison generator |
+| `server/generators/comparison-html-generator.js` | Self-contained HTML comparison report: delta summary, totals cards, per-suite comparison tables with inline filters and theme toggle |
+| `server/generators/comparison-xlsx-generator.js` | Comparison XLSX with 3 worksheets: Comparison Summary, Changed Tests, All Tests Comparison. Color-coded status/change cells |
 | `server/data/catalog.json` | Pre-fetched certsuite catalog (102 test entries) |
 | `server/data/skip-rules.json` | Built-in valid skip reason patterns (14 rules) |
 | `server/storage/index.js` | Storage backend factory (json or sqlite via env var) |
@@ -78,19 +80,20 @@ Both implement the same interface: `save()`, `list()`, `get()`, `delete()`. Load
 | `server/parsers/comparator.js` | Compare two parsed claim datasets: match by test ID, classify changes |
 | `server/routes/compare.js` | POST /api/compare endpoint for two-file comparison |
 | `server/routes/export-csv.js` | GET /api/export/csv/:sessionId endpoint |
-| `server/routes/export-html.js` | GET /api/export/html/:sessionId endpoint |
+| `server/routes/export-html.js` | GET /api/export/html/:sessionId endpoint (delegates to comparison generator when `session.type === 'comparison'`) |
+| `server/routes/export-xlsx.js` | GET /api/export/xlsx/:sessionId endpoint (delegates to comparison generator when `session.type === 'comparison'`) |
 
 ### Frontend Files
 
 | File | Purpose |
 |------|---------|
 | `public/index.html` | SPA shell: upload (single/compare), dashboard, comparison, history views |
-| `public/js/app.js` | Four-view navigation (upload/dashboard/comparison/history), drag-and-drop, upload, tab switching |
+| `public/js/app.js` | Four-view navigation (upload/dashboard/comparison/history), drag-and-drop (scoped to `#upload-form`), upload, tab switching, back-to-top button |
 | `public/js/dashboard.js` | Render header, log warnings, summary cards, category tables, test rows, Environment tab (includes P0/P1 security summary) |
 | `public/js/filters.js` | Category dropdown, scenario dropdown, status checkboxes (AND logic) |
-| `public/js/export.js` | Trigger PPTX/XLSX/CSV/HTML download + save report button wiring |
+| `public/js/export.js` | Trigger PPTX/XLSX/CSV/HTML download (fetch+blob), comparison export buttons, save report button wiring |
 | `public/js/history.js` | Report history list, save/load/delete, compare two saved reports, modal and toast UI |
-| `public/js/comparison.js` | Compare mode: upload toggle, comparison view rendering, delta badges |
+| `public/js/comparison.js` | Compare mode: upload toggle, comparison view rendering, delta badges, export button init |
 
 ## Data Model
 
@@ -172,6 +175,17 @@ Self-contained single `.html` file (~400KB) that mirrors the web dashboard. Open
 - **Embedded data**: `resultsBySuite` JSON embedded in inline script for dynamic filter updates
 
 The generator (`html-generator.js`) ports all `dashboard.js` render functions to server-side string assembly, reads and inlines `public/css/styles.css`, and appends light theme CSS overrides via `[data-theme="light"]` selectors.
+
+### Comparison Exports
+
+Both HTML and XLSX exports are available for comparison sessions (both upload-compare and history-compare flows). The export routes detect `session.type === 'comparison'` and delegate to dedicated generators.
+
+**Comparison XLSX** (`comparison-xlsx-generator.js`): Three worksheets:
+1. **Comparison Summary** — Report A/B metadata, overall delta table (Passed/Failed/Skipped A→B + delta), change summary counts, per-suite breakdown
+2. **Changed Tests** — Only non-unchanged tests, sorted by change type (regressed first). Columns: Test ID, Category, Report A/B Status, Change, Details. Color-coded cells.
+3. **All Tests Comparison** — Every test with status, change, priority, description. Same color coding.
+
+**Comparison HTML** (`comparison-html-generator.js`): Self-contained file mirroring the web comparison view. Includes comparison header, delta summary pills, totals cards, category/change filter dropdowns, collapsible per-suite tables, dark/light theme toggle. Reuses utility functions from `html-generator.js`.
 
 Surfaced in: dashboard Environment tab, PPTX environment slide, XLSX "Environment Summary" worksheet, CSV header block, HTML export Environment tab.
 

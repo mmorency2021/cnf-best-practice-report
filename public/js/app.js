@@ -12,11 +12,23 @@ document.addEventListener('DOMContentLoaded', () => {
   initUploadForm();
   initDropZones();
   initTabs();
+  initBackToTop();
   document.getElementById('btn-new-report')?.addEventListener('click', showUploadScreen);
 });
 
+function initBackToTop() {
+  const btn = document.getElementById('back-to-top');
+  if (!btn) return;
+  window.addEventListener('scroll', () => {
+    btn.style.display = window.scrollY > 400 ? 'flex' : 'none';
+  });
+  btn.addEventListener('click', () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+}
+
 function initDropZones() {
-  document.querySelectorAll('.drop-zone').forEach(zone => {
+  document.querySelectorAll('#upload-form .drop-zone').forEach(zone => {
     const inputId = zone.dataset.input;
     const input = document.getElementById(inputId);
     if (!input) return;
