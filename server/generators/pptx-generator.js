@@ -50,7 +50,10 @@ async function generate(claimData) {
   // Slide 8: Cluster Architecture overview
   addEnvironmentSlide(pptx, cnf, claimData.environment);
 
-  // Slide 9: Test scenario — versions
+  // Slide 9: Pod Resources summary
+  addPodResourcesSlide(pptx, cnf, claimData.environment);
+
+  // Slide 10: Test scenario — versions
   addTestScenarioSlide(pptx, meta);
 
   // Slide 10: Summary of results
@@ -401,6 +404,81 @@ function addEnvironmentSlide(pptx, cnf, environment) {
       rowH: 0.35, autoPage: false
     });
   }
+
+  addFooter(slide);
+}
+
+function addPodResourcesSlide(pptx, cnf, environment) {
+  const env = environment || {};
+  const testPods = (env.pods || {}).testPods || [];
+  if (testPods.length === 0) return;
+
+  const pCpu = val => { if (!val) return 0; const s = String(val); return s.endsWith('m') ? (parseInt(s,10)||0) : (parseFloat(s)||0)*1000; };
+  const pMem = val => { if (!val) return 0; const s = String(val); if (s.endsWith('Gi')) return (parseFloat(s)||0)*1024; if (s.endsWith('Mi')) return parseFloat(s)||0; if (s.endsWith('Ki')) return (parseFloat(s)||0)/1024; if (s.endsWith('G')) return (parseFloat(s)||0)*1000; if (s.endsWith('M')) return parseFloat(s)||0; return 0; };
+  const fCpu = m => m === 0 ? '0' : m % 1000 === 0 ? String(m/1000) : (m/1000).toFixed(1);
+  const fMem = m => m === 0 ? '0' : m >= 1024 ? (m/1024).toFixed(1).replace(/\.0$/,'') + ' Gi' : Math.round(m) + ' Mi';
+
+  const slide = pptx.addSlide();
+  addRedBar(slide);
+  slide.addText(`${cnf} — Pod Resources Summary`, {
+    x: 0.8, y: 0.5, w: 11, h: 0.8,
+    fontSize: 28, color: RH_DARK, bold: true
+  });
+
+  const table = [
+    [{ text: 'Pod', options: { bold: true, color: WHITE, fill: { color: RH_DARK }, fontSize: 10 } },
+     { text: 'Container', options: { bold: true, color: WHITE, fill: { color: RH_DARK }, fontSize: 10 } },
+     { text: 'CPU Req', options: { bold: true, color: WHITE, fill: { color: RH_DARK }, fontSize: 10, align: 'center' } },
+     { text: 'CPU Lim', options: { bold: true, color: WHITE, fill: { color: RH_DARK }, fontSize: 10, align: 'center' } },
+     { text: 'Mem Req', options: { bold: true, color: WHITE, fill: { color: RH_DARK }, fontSize: 10, align: 'center' } },
+     { text: 'Mem Lim', options: { bold: true, color: WHITE, fill: { color: RH_DARK }, fontSize: 10, align: 'center' } }]
+  ];
+
+  let tCpuReq = 0, tCpuLim = 0, tMemReq = 0, tMemLim = 0;
+  for (const pod of testPods) {
+    for (const c of (pod.containers || [])) {
+      const res = c.resources || {};
+      const req = res.requests || {};
+      const lim = res.limits || {};
+      const cpuReq = String(req.cpu || '-');
+      const cpuLim = String(lim.cpu || '-');
+      const memReq = String(req.memory || '-');
+      const memLim = String(lim.memory || '-');
+      tCpuReq += pCpu(req.cpu); tCpuLim += pCpu(lim.cpu);
+      tMemReq += pMem(req.memory); tMemLim += pMem(lim.memory);
+      table.push([
+        { text: pod.name, options: { fontSize: 9 } },
+        { text: c.name, options: { fontSize: 9 } },
+        { text: cpuReq, options: { fontSize: 9, align: 'center' } },
+        { text: cpuLim, options: { fontSize: 9, align: 'center' } },
+        { text: memReq, options: { fontSize: 9, align: 'center' } },
+        { text: memLim, options: { fontSize: 9, align: 'center' } }
+      ]);
+    }
+  }
+
+  table.push([
+    { text: 'Total CPU', options: { fontSize: 9, bold: true } },
+    { text: '', options: { fontSize: 9 } },
+    { text: fCpu(tCpuReq), options: { fontSize: 9, bold: true, align: 'center' } },
+    { text: fCpu(tCpuLim), options: { fontSize: 9, bold: true, align: 'center' } },
+    { text: '', options: { fontSize: 9 } },
+    { text: '', options: { fontSize: 9 } }
+  ]);
+  table.push([
+    { text: 'Total Memory', options: { fontSize: 9, bold: true } },
+    { text: '', options: { fontSize: 9 } },
+    { text: '', options: { fontSize: 9 } },
+    { text: '', options: { fontSize: 9 } },
+    { text: fMem(tMemReq), options: { fontSize: 9, bold: true, align: 'center' } },
+    { text: fMem(tMemLim), options: { fontSize: 9, bold: true, align: 'center' } }
+  ]);
+
+  slide.addTable(table, {
+    x: 0.8, y: 1.5, w: 11.7, colW: [3, 2, 1.3, 1.3, 1.6, 1.6],
+    border: { pt: 0.5, color: 'E0E0E0' },
+    rowH: 0.35, autoPage: true, autoPageRepeatHeader: true
+  });
 
   addFooter(slide);
 }
