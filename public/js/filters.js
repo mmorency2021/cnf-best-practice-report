@@ -6,6 +6,49 @@ function initFilters(data) {
   document.getElementById('filter-passed').addEventListener('change', applyFilters);
   document.getElementById('filter-failed').addEventListener('change', applyFilters);
   document.getElementById('filter-skipped').addEventListener('change', applyFilters);
+
+  initMultiSelect('filter-priority', applyFilters);
+}
+
+function initMultiSelect(id, onChange) {
+  const wrapper = document.getElementById(id);
+  if (!wrapper) return;
+  const toggle = wrapper.querySelector('.multi-select-toggle');
+  const checkboxes = wrapper.querySelectorAll('input[type="checkbox"]');
+
+  toggle.addEventListener('click', (e) => {
+    e.stopPropagation();
+    document.querySelectorAll('.multi-select.open').forEach(el => { if (el !== wrapper) el.classList.remove('open'); });
+    wrapper.classList.toggle('open');
+    toggle.setAttribute('aria-expanded', wrapper.classList.contains('open'));
+  });
+
+  checkboxes.forEach(cb => cb.addEventListener('change', () => {
+    updateMultiSelectLabel(wrapper);
+    onChange();
+  }));
+}
+
+function updateMultiSelectLabel(wrapper) {
+  const toggle = wrapper.querySelector('.multi-select-toggle');
+  const checkboxes = wrapper.querySelectorAll('input[type="checkbox"]');
+  const checked = wrapper.querySelectorAll('input[type="checkbox"]:checked');
+  if (checked.length === checkboxes.length) {
+    toggle.textContent = 'All Priorities';
+  } else if (checked.length === 0) {
+    toggle.textContent = 'None';
+  } else {
+    toggle.textContent = Array.from(checked).map(cb => 'P' + cb.value).join(', ');
+  }
+}
+
+function getSelectedPriorities(id) {
+  const wrapper = document.getElementById(id);
+  if (!wrapper) return null;
+  const checkboxes = wrapper.querySelectorAll('input[type="checkbox"]');
+  const checked = wrapper.querySelectorAll('input[type="checkbox"]:checked');
+  if (checked.length === checkboxes.length) return null;
+  return new Set(Array.from(checked).map(cb => Number(cb.value)));
 }
 
 function populateCategoryDropdown(resultsBySuite) {
@@ -32,6 +75,10 @@ function applyFilters() {
   if (showFailed) allowedStatuses.add('failed');
   if (showSkipped) allowedStatuses.add('skipped');
 
+  const allowedPriorities = getSelectedPriorities('filter-priority');
+
+  let totalVisible = 0;
+
   // Filter suite sections
   document.querySelectorAll('.suite-section').forEach(section => {
     const suite = section.dataset.suite;
@@ -45,16 +92,32 @@ function applyFilters() {
       const status = row.dataset.status;
       const statusMatch = allowedStatuses.has(status);
       const scenarioMatch = matchScenario(row, scenario);
-      const visible = statusMatch && scenarioMatch;
+      const priorityMatch = !allowedPriorities || allowedPriorities.has(Number(row.dataset.priority));
+      const visible = statusMatch && scenarioMatch && priorityMatch;
       row.style.display = visible ? '' : 'none';
       if (visible) visibleCount++;
     });
 
     section.style.display = categoryMatch && visibleCount > 0 ? '' : 'none';
+    totalVisible += visibleCount;
   });
 
+  let emptyEl = document.getElementById('filter-empty-state');
+  if (totalVisible === 0) {
+    if (!emptyEl) {
+      emptyEl = document.createElement('div');
+      emptyEl.id = 'filter-empty-state';
+      emptyEl.className = 'filter-empty';
+      emptyEl.innerHTML = '<p>No tests match the current filters.</p><button class="btn btn-outline" onclick="clearAllFilters()">Clear Filters</button>';
+      document.getElementById('test-tables').appendChild(emptyEl);
+    }
+    emptyEl.style.display = '';
+  } else if (emptyEl) {
+    emptyEl.style.display = 'none';
+  }
+
   // Update category summary visibility
-  updateCategorySummaryFiltered(category, allowedStatuses, scenario);
+  updateCategorySummaryFiltered(category, allowedStatuses, scenario, allowedPriorities);
 }
 
 function matchScenario(row, scenario) {
@@ -74,7 +137,7 @@ function matchScenario(row, scenario) {
   return true;
 }
 
-function updateCategorySummaryFiltered(category, allowedStatuses, scenario) {
+function updateCategorySummaryFiltered(category, allowedStatuses, scenario, allowedPriorities) {
   if (!appState.data) return;
   const resultsBySuite = appState.data.resultsBySuite;
   const container = document.getElementById('category-summary');
@@ -92,6 +155,9 @@ function updateCategorySummaryFiltered(category, allowedStatuses, scenario) {
         if (scenario === 'telco-optional') return sc.Telco === 'Optional' || sc.telco === 'Optional';
         return true;
       });
+    }
+    if (allowedPriorities) {
+      results = results.filter(r => allowedPriorities.has(r.priority ?? 4));
     }
 
     const passed = results.filter(r => r.normalizedState === 'passed' && allowedStatuses.has('passed')).length;
@@ -113,4 +179,19 @@ function updateCategorySummaryFiltered(category, allowedStatuses, scenario) {
     <thead><tr><th>Category</th><th>Total</th><th>Passed</th><th>Failed</th><th>Skipped</th></tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
+}
+
+function clearAllFilters() {
+  document.getElementById('filter-category').value = 'all';
+  document.getElementById('filter-scenario').value = 'all';
+  document.getElementById('filter-passed').checked = true;
+  document.getElementById('filter-failed').checked = true;
+  document.getElementById('filter-skipped').checked = true;
+  const pw = document.getElementById('filter-priority');
+  if (pw) {
+    pw.querySelectorAll('input[type="checkbox"]').forEach(cb => { cb.checked = true; });
+    updateMultiSelectLabel(pw);
+  }
+  document.querySelectorAll('.summary-card').forEach(c => c.classList.remove('active'));
+  applyFilters();
 }

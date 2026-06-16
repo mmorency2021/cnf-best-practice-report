@@ -1,7 +1,7 @@
 function generate(claimData) {
   const envLines = buildEnvironmentHeader(claimData);
 
-  const headers = ['Test ID', 'Category', 'Impact', 'Remediation', 'Priority'];
+  const headers = ['Test ID', 'Category', 'Impact', 'Best Practice Reference', 'Remediation', 'Priority'];
 
   const failedResults = (claimData.results || [])
     .filter(r => r.normalizedState === 'failed')
@@ -15,6 +15,7 @@ function generate(claimData) {
     r.id,
     formatSuiteName(r.suite || ''),
     r.impact || r.description || '',
+    r.bestPracticeRef || '',
     r.remediation || '',
     r.priority ?? 4
   ]);

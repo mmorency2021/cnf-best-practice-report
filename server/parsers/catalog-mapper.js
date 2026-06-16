@@ -125,6 +125,16 @@ function assignPriority(testId, overrides) {
   return 2;
 }
 
+function stripExceptionText(text) {
+  if (!text) return '';
+  return text
+    .split(/(?<=[.;])\s+|(?:^|\s+)(?=No exceptions?\b)/i)
+    .filter(s => !/\bexceptions?\b/i.test(s))
+    .join(' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
 function enrich(results, priorityOverrides) {
   const catalog = load();
   return results.map(result => {
@@ -132,8 +142,7 @@ function enrich(results, priorityOverrides) {
     return {
       ...result,
       description: result.description || catalogEntry.description || '',
-      remediation: result.remediation || catalogEntry.remediation || '',
-      exceptionProcess: result.exceptionProcess || catalogEntry.exceptionProcess || '',
+      remediation: stripExceptionText(result.remediation || catalogEntry.remediation || ''),
       bestPracticeRef: result.bestPracticeRef || catalogEntry.bestPracticeReference || '',
       impact: catalogEntry.impact || '',
       tags: result.tags || catalogEntry.tags || '',

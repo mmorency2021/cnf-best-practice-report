@@ -29,8 +29,7 @@ function buildDeltaSummaryHtml(summary) {
   if (!summary) return '';
   let html = `
     <div class="delta-summary">
-      <div class="delta-pill delta-improved">${summary.improved} Improved</div>
-      <div class="delta-pill delta-regressed">${summary.regressed} Regressed</div>
+      <div class="delta-pill delta-changed">${summary.changed} Changed</div>
       <div class="delta-pill delta-unchanged">${summary.unchanged} Unchanged</div>`;
   if (summary.addedInB) html += `<div class="delta-pill delta-added">${summary.addedInB} Added</div>`;
   if (summary.removedInB) html += `<div class="delta-pill delta-removed">${summary.removedInB} Removed</div>`;
@@ -105,14 +104,38 @@ function buildComparisonFilterBarHtml(comparisonBySuite) {
         <label for="comp-filter-change">Change</label>
         <select id="comp-filter-change" class="filter-select">
           <option value="all">All Changes</option>
-          <option value="regressed">Regressed</option>
-          <option value="improved">Improved</option>
+          <option value="changed">Changed</option>
           <option value="unchanged">Unchanged</option>
           <option value="added">Added</option>
           <option value="removed">Removed</option>
         </select>
       </div>
+      <div class="filter-group">
+        <label>Priority</label>
+        <div class="multi-select" id="comp-filter-priority">
+          <button type="button" class="multi-select-toggle filter-select" aria-expanded="false">All Priorities</button>
+          <div class="multi-select-menu">
+            <label><input type="checkbox" value="0" checked> P0 — Security Critical</label>
+            <label><input type="checkbox" value="1" checked> P1 — Host Access</label>
+            <label><input type="checkbox" value="2" checked> P2 — Cluster/Scheduling</label>
+            <label><input type="checkbox" value="3" checked> P3 — Lifecycle</label>
+            <label><input type="checkbox" value="4" checked> P4 — Advisory</label>
+          </div>
+        </div>
+      </div>
     </div>`;
+}
+
+function formatCompDetail(d) {
+  const parts = [];
+  if (d.podName) parts.push(d.podName);
+  else if (d.objectType) parts.push(d.objectType);
+  if (d.containerName) parts.push('container: ' + d.containerName);
+  if (d.namespace) parts.push('ns: ' + d.namespace);
+  if (d.reason) parts.push(d.reason);
+  if (parts.length > 0) return parts.join(' | ');
+  const r = d.reason || JSON.stringify(d);
+  return typeof r === 'string' ? r : JSON.stringify(r);
 }
 
 function buildStateCell(state) {
@@ -124,24 +147,25 @@ function buildComparisonRowHtml(t) {
   const changeBadge = `<span class="change-badge change-${t.change}">${t.change}</span>`;
 
   let details = '';
-  if (t.change === 'regressed' && t.failureDetailsB?.length) {
-    const firstFail = t.failureDetailsB[0];
-    const reason = firstFail.reason || JSON.stringify(firstFail);
-    details = `<div class="failure-details">${escapeHtml(typeof reason === 'string' ? reason : JSON.stringify(reason))}</div>`;
-  } else if (t.change === 'improved' && t.failureDetailsA?.length) {
-    const firstFail = t.failureDetailsA[0];
-    const reason = firstFail.reason || JSON.stringify(firstFail);
-    details = `<div class="remediation-box">Was: ${escapeHtml(typeof reason === 'string' ? reason : JSON.stringify(reason))}</div>`;
+  if (t.change === 'changed' && t.failureDetailsB?.length) {
+    const items = t.failureDetailsB.map(d => `<li>${escapeHtml(formatCompDetail(d))}</li>`).join('');
+    details = `<div class="failure-details"><ul class="fail-list">${items}</ul></div>`;
+  } else if (t.change === 'changed' && t.failureDetailsA?.length) {
+    const items = t.failureDetailsA.map(d => `<li>${escapeHtml(formatCompDetail(d))}</li>`).join('');
+    details = `<div class="remediation-box">Was:<ul class="fail-list">${items}</ul></div>`;
   } else {
     details = escapeHtml(t.descriptionB || t.descriptionA || '');
   }
 
+  const impact = escapeHtml(t.impactB || t.impactA || '');
+
   return `
-    <tr data-change="${t.change}" data-suite="${escapeHtml(t.suite)}">
+    <tr data-change="${t.change}" data-suite="${escapeHtml(t.suite)}" data-priority="${t.priorityB ?? t.priorityA ?? 4}">
       <td class="test-id">${escapeHtml(t.id)}</td>
       <td>${buildStateCell(t.stateA)}</td>
       <td>${buildStateCell(t.stateB)}</td>
       <td>${changeBadge}</td>
+      <td class="impact-cell">${impact}</td>
       <td>${details}</td>
     </tr>`;
 }
@@ -152,12 +176,11 @@ function buildComparisonSuitesHtml(comparisonBySuite) {
 
   for (const suite of suites) {
     const data = comparisonBySuite[suite];
-    const changes = { improved: 0, regressed: 0, unchanged: 0, added: 0, removed: 0 };
+    const changes = { changed: 0, unchanged: 0, added: 0, removed: 0 };
     data.tests.forEach(t => changes[t.change]++);
 
     const countsHtml = [];
-    if (changes.regressed) countsHtml.push(`<span class="count-failed">${changes.regressed} regressed</span>`);
-    if (changes.improved) countsHtml.push(`<span class="count-passed">${changes.improved} improved</span>`);
+    if (changes.changed) countsHtml.push(`<span class="count-changed">${changes.changed} changed</span>`);
     if (changes.unchanged) countsHtml.push(`<span class="count-skipped">${changes.unchanged} unchanged</span>`);
 
     const rows = data.tests.map(t => buildComparisonRowHtml(t)).join('');
@@ -176,6 +199,7 @@ function buildComparisonSuitesHtml(comparisonBySuite) {
                 <th>Report A</th>
                 <th>Report B</th>
                 <th>Change</th>
+                <th>Impact</th>
                 <th>Details</th>
               </tr>
             </thead>
@@ -195,9 +219,32 @@ function toggleSuite(header) {
   header.nextElementSibling.classList.toggle('collapsed');
 }
 
+function getCheckedPriorities() {
+  var wrapper = document.getElementById('comp-filter-priority');
+  if (!wrapper) return null;
+  var all = wrapper.querySelectorAll('input[type="checkbox"]');
+  var checked = wrapper.querySelectorAll('input[type="checkbox"]:checked');
+  if (checked.length === all.length) return null;
+  var set = {};
+  for (var i = 0; i < checked.length; i++) set[checked[i].value] = true;
+  return set;
+}
+
+function updatePriorityLabel() {
+  var wrapper = document.getElementById('comp-filter-priority');
+  if (!wrapper) return;
+  var toggle = wrapper.querySelector('.multi-select-toggle');
+  var all = wrapper.querySelectorAll('input[type="checkbox"]');
+  var checked = wrapper.querySelectorAll('input[type="checkbox"]:checked');
+  if (checked.length === all.length) { toggle.textContent = 'All Priorities'; }
+  else if (checked.length === 0) { toggle.textContent = 'None'; }
+  else { var labels = []; for (var i = 0; i < checked.length; i++) labels.push('P' + checked[i].value); toggle.textContent = labels.join(', '); }
+}
+
 function applyComparisonFilters() {
   var category = document.getElementById('comp-filter-category').value;
   var change = document.getElementById('comp-filter-change').value;
+  var allowedPriorities = getCheckedPriorities();
 
   document.querySelectorAll('.suite-section').forEach(function(section) {
     if (category !== 'all' && section.dataset.suite !== category) {
@@ -209,8 +256,10 @@ function applyComparisonFilters() {
     var visibleRows = 0;
     section.querySelectorAll('tbody tr').forEach(function(row) {
       var matchChange = change === 'all' || row.dataset.change === change;
-      row.style.display = matchChange ? '' : 'none';
-      if (matchChange) visibleRows++;
+      var matchPriority = !allowedPriorities || !!allowedPriorities[row.dataset.priority];
+      var visible = matchChange && matchPriority;
+      row.style.display = visible ? '' : 'none';
+      if (visible) visibleRows++;
     });
 
     if (visibleRows === 0) section.style.display = 'none';
@@ -220,6 +269,22 @@ function applyComparisonFilters() {
 document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('comp-filter-category').addEventListener('change', applyComparisonFilters);
   document.getElementById('comp-filter-change').addEventListener('change', applyComparisonFilters);
+
+  var pw = document.getElementById('comp-filter-priority');
+  if (pw) {
+    var ptoggle = pw.querySelector('.multi-select-toggle');
+    ptoggle.addEventListener('click', function(e) {
+      e.stopPropagation();
+      pw.classList.toggle('open');
+      ptoggle.setAttribute('aria-expanded', pw.classList.contains('open'));
+    });
+    pw.querySelectorAll('input[type="checkbox"]').forEach(function(cb) {
+      cb.addEventListener('change', function() { updatePriorityLabel(); applyComparisonFilters(); });
+    });
+    document.addEventListener('click', function(e) {
+      if (!pw.contains(e.target)) { pw.classList.remove('open'); ptoggle.setAttribute('aria-expanded', 'false'); }
+    });
+  }
 
   var themeBtn = document.getElementById('theme-toggle');
   var saved = localStorage.getItem('report-theme');

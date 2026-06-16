@@ -13,7 +13,18 @@ document.addEventListener('DOMContentLoaded', () => {
   initDropZones();
   initTabs();
   initBackToTop();
+  initModalAccessibility();
+  initToastDismiss();
   document.getElementById('btn-new-report')?.addEventListener('click', showUploadScreen);
+
+  document.addEventListener('click', (e) => {
+    document.querySelectorAll('.multi-select.open').forEach(el => {
+      if (!el.contains(e.target)) {
+        el.classList.remove('open');
+        el.querySelector('.multi-select-toggle')?.setAttribute('aria-expanded', 'false');
+      }
+    });
+  });
 });
 
 function initBackToTop() {
@@ -34,6 +45,9 @@ function initDropZones() {
     if (!input) return;
 
     zone.addEventListener('click', () => input.click());
+    zone.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); }
+    });
 
     zone.addEventListener('dragover', e => {
       e.preventDefault();
@@ -208,5 +222,49 @@ function showToast(message, type) {
   toast.textContent = message;
   toast.className = 'toast toast-' + (type || 'success');
   toast.style.display = 'block';
-  setTimeout(() => { toast.style.display = 'none'; }, 3000);
+  clearTimeout(toast._timer);
+  toast._timer = setTimeout(() => { toast.style.display = 'none'; }, 3500);
+}
+
+function initToastDismiss() {
+  document.getElementById('toast')?.addEventListener('click', function () {
+    this.style.display = 'none';
+    clearTimeout(this._timer);
+  });
+}
+
+function initModalAccessibility() {
+  const modal = document.getElementById('save-modal');
+  if (!modal) return;
+
+  modal.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      modal.style.display = 'none';
+      return;
+    }
+    if (e.key === 'Tab') {
+      const focusable = modal.querySelectorAll('input, button, [tabindex]:not([tabindex="-1"])');
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+  });
+
+  modal.addEventListener('click', e => {
+    if (e.target === modal) modal.style.display = 'none';
+  });
+}
+
+function handleKeyboardActivate(e) {
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault();
+    e.currentTarget.click();
+  }
 }

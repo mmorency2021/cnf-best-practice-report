@@ -7,8 +7,7 @@ const STATUS_COLORS = {
 };
 
 const CHANGE_COLORS = {
-  improved:  { bg: 'FF28A745', font: 'FFFFFFFF' },
-  regressed: { bg: 'FFDC3545', font: 'FFFFFFFF' },
+  changed:   { bg: 'FFFFC107', font: 'FF333333' },
   unchanged: { bg: 'FF6C757D', font: 'FFFFFFFF' },
   added:     { bg: 'FF0D6EFD', font: 'FFFFFFFF' },
   removed:   { bg: 'FFADB5BD', font: 'FF333333' }
@@ -24,7 +23,7 @@ const THIN_BORDER = {
   right: { style: 'thin', color: { argb: 'FFE0E0E0' } }
 };
 
-const CHANGE_ORDER = { regressed: 0, improved: 1, added: 2, removed: 3, unchanged: 4 };
+const CHANGE_ORDER = { changed: 0, added: 1, removed: 2, unchanged: 3 };
 
 function formatSuiteName(suite) {
   return suite.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
@@ -69,11 +68,11 @@ function colorChangeCell(cell, change) {
 }
 
 function getTestDetails(t) {
-  if (t.change === 'regressed' && t.failureDetailsB?.length) {
+  if (t.change === 'changed' && t.failureDetailsB?.length) {
     const reason = t.failureDetailsB[0].reason || JSON.stringify(t.failureDetailsB[0]);
     return typeof reason === 'string' ? reason : JSON.stringify(reason);
   }
-  if (t.change === 'improved' && t.failureDetailsA?.length) {
+  if (t.change === 'changed' && t.failureDetailsA?.length) {
     const reason = t.failureDetailsA[0].reason || JSON.stringify(t.failureDetailsA[0]);
     return 'Was: ' + (typeof reason === 'string' ? reason : JSON.stringify(reason));
   }
@@ -168,8 +167,7 @@ function addSummarySheet(workbook, session) {
   applyHeaderRow(changeHdr);
 
   const changes = [
-    ['Improved', summary.improved],
-    ['Regressed', summary.regressed],
+    ['Changed', summary.changed],
     ['Unchanged', summary.unchanged],
     ['Added', summary.addedInB],
     ['Removed', summary.removedInB]
@@ -223,6 +221,7 @@ function addChangedTestsSheet(workbook, session) {
     { header: 'Report A', key: 'stateA', width: 12 },
     { header: 'Report B', key: 'stateB', width: 12 },
     { header: 'Change', key: 'change', width: 12 },
+    { header: 'Impact', key: 'impact', width: 40 },
     { header: 'Details', key: 'details', width: 50 }
   ];
 
@@ -244,6 +243,7 @@ function addChangedTestsSheet(workbook, session) {
       stateA: t.stateA || 'N/A',
       stateB: t.stateB || 'N/A',
       change: t.change,
+      impact: t.impactB || t.impactA || '',
       details: getTestDetails(t)
     });
     row.alignment = { vertical: 'top', wrapText: true };
@@ -267,6 +267,8 @@ function addAllTestsSheet(workbook, session) {
     { header: 'Report B', key: 'stateB', width: 12 },
     { header: 'Change', key: 'change', width: 12 },
     { header: 'Priority', key: 'priority', width: 10 },
+    { header: 'Impact', key: 'impact', width: 40 },
+    { header: 'Best Practice Reference', key: 'bestPracticeRef', width: 45 },
     { header: 'Description', key: 'description', width: 40 }
   ];
 
@@ -287,6 +289,8 @@ function addAllTestsSheet(workbook, session) {
       stateB: t.stateB || 'N/A',
       change: t.change,
       priority: t.priorityB ?? t.priorityA ?? '-',
+      impact: t.impactB || t.impactA || '',
+      bestPracticeRef: t.bestPracticeRefB || t.bestPracticeRefA || '',
       description: t.descriptionB || t.descriptionA || ''
     });
     row.alignment = { vertical: 'top', wrapText: true };

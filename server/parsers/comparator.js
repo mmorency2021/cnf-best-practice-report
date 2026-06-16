@@ -6,7 +6,7 @@ function compare(claimDataA, claimDataB) {
 
   const allIds = new Set([...mapA.keys(), ...mapB.keys()]);
 
-  const summary = { improved: 0, regressed: 0, unchanged: 0, addedInB: 0, removedInB: 0 };
+  const summary = { changed: 0, unchanged: 0, addedInB: 0, removedInB: 0 };
   const testDiffs = [];
 
   for (const id of allIds) {
@@ -48,6 +48,10 @@ function buildTestDiff(a, b) {
       descriptionB: b.description || '',
       remediationA: null,
       remediationB: b.remediation || '',
+      impactA: null,
+      impactB: b.impact || '',
+      bestPracticeRefA: null,
+      bestPracticeRefB: b.bestPracticeRef || '',
       priorityA: null,
       priorityB: b.priority,
       failureDetailsA: null,
@@ -68,6 +72,10 @@ function buildTestDiff(a, b) {
       descriptionB: null,
       remediationA: a.remediation || '',
       remediationB: null,
+      impactA: a.impact || '',
+      impactB: null,
+      bestPracticeRefA: a.bestPracticeRef || '',
+      bestPracticeRefB: null,
       priorityA: a.priority,
       priorityB: null,
       failureDetailsA: a.failureDetails || [],
@@ -81,8 +89,7 @@ function buildTestDiff(a, b) {
   const rankB = STATE_RANK[b.normalizedState] ?? 0;
 
   let change = 'unchanged';
-  if (rankB > rankA) change = 'improved';
-  else if (rankB < rankA) change = 'regressed';
+  if (rankB !== rankA) change = 'changed';
 
   return {
     id: a.id,
@@ -94,6 +101,10 @@ function buildTestDiff(a, b) {
     descriptionB: b.description || '',
     remediationA: a.remediation || '',
     remediationB: b.remediation || '',
+    impactA: a.impact || '',
+    impactB: b.impact || '',
+    bestPracticeRefA: a.bestPracticeRef || '',
+    bestPracticeRefB: b.bestPracticeRef || '',
     priorityA: a.priority,
     priorityB: b.priority,
     failureDetailsA: a.failureDetails || [],
@@ -122,7 +133,7 @@ function groupBySuite(testDiffs, claimDataA, claimDataB) {
 
   for (const suite of Object.values(suites)) {
     suite.tests.sort((a, b) => {
-      const order = { regressed: 0, improved: 1, added: 2, removed: 3, unchanged: 4 };
+      const order = { changed: 0, added: 1, removed: 2, unchanged: 3 };
       return (order[a.change] ?? 5) - (order[b.change] ?? 5);
     });
   }

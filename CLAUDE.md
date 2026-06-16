@@ -26,7 +26,7 @@ node scripts/fetch-catalog.js   # Refresh catalog data from upstream CATALOG.md
 ```
 POST /api/upload (multipart: claim, log, priorityMapping)
   → claim-parser.js    → normalized test results + environment extraction
-  → catalog-mapper.js  → enrich with catalog data + priority (0-4, with optional CSV/XLSX overrides)
+  → catalog-mapper.js  → enrich with catalog data (description, remediation, impact statement, best practice reference) + priority (0-4, with optional CSV/XLSX overrides)
   → skip-analyzer.js   → classify skipped tests (valid-skip / needs-review)
   → log-validator.js   → health warnings (stream-based for large files)
   → Store in memory session (no TTL — persists until server restart)
@@ -61,8 +61,8 @@ Both implement the same interface: `save()`, `list()`, `get()`, `delete()`. Load
 
 | Module | Purpose |
 |--------|---------|
-| `server/parsers/claim-parser.js` | Parse claim.json: normalize error→failed, extract NonCompliantObjectsOut, extract environment (cluster/hardware/pods/helm) |
-| `server/parsers/catalog-mapper.js` | Enrich results with catalog descriptions, remediation, priority 0-4; accepts optional priority overrides map |
+| `server/parsers/claim-parser.js` | Parse claim.json: normalize error→failed, extract NonCompliantObjectsOut (podName, containerName, namespace, reason per object), extract environment (cluster/hardware/pods/helm) |
+| `server/parsers/catalog-mapper.js` | Enrich results with catalog descriptions, remediation (exception text stripped), impact statement, best practice reference, priority 0-4; accepts optional priority overrides map |
 | `server/parsers/skip-analyzer.js` | Classify skips: built-in rules → skip reason text analysis |
 | `server/parsers/log-validator.js` | Stream-based log scanning: probe pod/daemonset missing, panics, completion check (ERROR lines ignored — normal in certsuite) |
 | `server/generators/pptx-generator.js` | Red Hat branded slide deck using pptxgenjs (includes environment slide, table-based failed-by-category) |
@@ -71,7 +71,7 @@ Both implement the same interface: `save()`, `list()`, `get()`, `delete()`. Load
 | `server/generators/html-generator.js` | Self-contained HTML dashboard export with dark/light theme toggle, inlined CSS/JS, filters, and back-to-top navigation. Also exports utility functions (`escapeHtml`, `formatSuiteName`, `loadCss`, `buildLightThemeCss`) for reuse by comparison generator |
 | `server/generators/comparison-html-generator.js` | Self-contained HTML comparison report: delta summary, totals cards, per-suite comparison tables with inline filters and theme toggle |
 | `server/generators/comparison-xlsx-generator.js` | Comparison XLSX with 3 worksheets: Comparison Summary, Changed Tests, All Tests Comparison. Color-coded status/change cells |
-| `server/data/catalog.json` | Pre-fetched certsuite catalog (102 test entries) |
+| `server/data/catalog.json` | Pre-fetched certsuite catalog (102 test entries, each with description, remediation, impact statement, best practice reference, scenarios). Exception text stripped from remediation at fetch time |
 | `server/data/skip-rules.json` | Built-in valid skip reason patterns (14 rules) |
 | `server/storage/index.js` | Storage backend factory (json or sqlite via env var) |
 | `server/storage/json-store.js` | JSON file storage: `server/reports/{id}.json` + `_index.json` |
@@ -79,9 +79,9 @@ Both implement the same interface: `save()`, `list()`, `get()`, `delete()`. Load
 | `server/routes/reports.js` | CRUD API for saving/loading/deleting reports + compare two saved reports |
 | `server/parsers/comparator.js` | Compare two parsed claim datasets: match by test ID, classify changes |
 | `server/routes/compare.js` | POST /api/compare endpoint for two-file comparison |
-| `server/routes/export-csv.js` | GET /api/export/csv/:sessionId endpoint |
-| `server/routes/export-html.js` | GET /api/export/html/:sessionId endpoint (delegates to comparison generator when `session.type === 'comparison'`) |
-| `server/routes/export-xlsx.js` | GET /api/export/xlsx/:sessionId endpoint (delegates to comparison generator when `session.type === 'comparison'`) |
+| `server/routes/export-csv.js` | GET /api/export/csv/:sessionId endpoint. Supports `?priorities=` server-side filtering |
+| `server/routes/export-html.js` | GET /api/export/html/:sessionId endpoint (delegates to comparison generator when `session.type === 'comparison'`). Supports `?priorities=` server-side filtering |
+| `server/routes/export-xlsx.js` | GET /api/export/xlsx/:sessionId endpoint (delegates to comparison generator when `session.type === 'comparison'`). Supports `?priorities=` server-side filtering |
 
 ### Frontend Files
 
@@ -90,8 +90,8 @@ Both implement the same interface: `save()`, `list()`, `get()`, `delete()`. Load
 | `public/index.html` | SPA shell: upload (single/compare), dashboard, comparison, history views |
 | `public/js/app.js` | Four-view navigation (upload/dashboard/comparison/history), drag-and-drop (scoped to `#upload-form`), upload, tab switching, back-to-top button |
 | `public/js/dashboard.js` | Render header, log warnings, summary cards, category tables, test rows, Environment tab (includes P0/P1 security summary) |
-| `public/js/filters.js` | Category dropdown, scenario dropdown, status checkboxes (AND logic) |
-| `public/js/export.js` | Trigger PPTX/XLSX/CSV/HTML download (fetch+blob), comparison export buttons, save report button wiring |
+| `public/js/filters.js` | Category dropdown, scenario dropdown, priority multi-select checkboxes, status checkboxes (AND logic). Also provides `initMultiSelect()`, `getSelectedPriorities()`, `updateMultiSelectLabel()` reused by comparison view |
+| `public/js/export.js` | Trigger PPTX/XLSX/CSV/HTML download (fetch+blob with `?priorities=` query param from current filter), comparison export buttons, save report button wiring |
 | `public/js/history.js` | Report history list, save/load/delete, compare two saved reports, modal and toast UI |
 | `public/js/comparison.js` | Compare mode: upload toggle, comparison view rendering, delta badges, export button init |
 
@@ -114,6 +114,17 @@ Users can upload a CSV or XLSX file to override the built-in `PRIORITY_MAP` in `
 - **XLSX**: First worksheet, auto-detects `test_id` and `priority` columns by header name
 
 If no file is uploaded, the built-in priority map applies. Overrides only affect tests present in the uploaded file; all other tests use defaults.
+
+### Priority Filtering
+Dashboard, HTML export, and comparison views include a multi-select priority checkbox dropdown (P0–P4, all checked by default). Filter is AND-combined with category, scenario, and status filters. Each test row carries a `data-priority` attribute for client-side filtering. When downloading XLSX, HTML, or CSV exports, the current priority selection is passed as `?priorities=0,1,...` query param and the export routes (`export-html.js`, `export-xlsx.js`, `export-csv.js`) filter results server-side before generating the file.
+
+### Failure Details Display
+Each failed test lists **all** non-compliant objects (not just the first) as a bulleted list. Each item shows: `pod-name | container: name | ns: namespace | reason`. The `formatFailureDetail()` helper is used in dashboard.js, html-generator.js, and comparison views. XLSX exports include a "Details (Non-Compliant Objects)" column in both Failed Case Summary and All Tests sheets with all pods listed (newline-separated).
+
+### Exception Text Stripping
+Remediation text from the upstream CATALOG.md often contains exception process language (e.g., "Exception possible if...", "No exceptions - will only be considered..."). This text is stripped at two levels:
+- **Fetch time**: `scripts/fetch-catalog.js` removes sentences containing "exception(s)" before writing catalog.json
+- **Runtime**: `catalog-mapper.js` applies the same `stripExceptionText()` filter during enrichment
 
 ### Skip Classification
 1. Built-in rules (`server/data/skip-rules.json`) matched by testIdPattern
@@ -159,18 +170,18 @@ environment: {
 Surfaced in: dashboard Environment tab, PPTX environment slide, XLSX "Environment Summary" worksheet, CSV header block.
 
 ### XLSX Worksheets
-1. **Failed Case Summary** — Failed tests sorted by priority then category, with color-coded priority cells and priority legend
+1. **Failed Case Summary** — Failed tests sorted by priority then category, with Impact Statement, Details (all non-compliant pods), Best Practice Reference, Remediation, color-coded priority cells and priority legend
 2. **Environment Summary** — Config, operators, SR-IOV, test pods, workloads, helm charts
-3. **All Tests** — Every test case (passed/failed/skipped), sorted by category then priority, with color-coded Status and Priority cells
+3. **All Tests** — Every test case (passed/failed/skipped), sorted by category then priority, with Impact Statement, Details (non-compliant objects for failed tests), Best Practice Reference, color-coded Status and Priority cells
 
 ### PPTX Failed-by-Category Slides
-Table-based layout with 3 columns (Test ID, Category, Priority), 10 rows per slide, sorted by category then priority. Uses same styling as Failed Test Case Details slides.
+Table-based layout with 3 columns (Test ID, Category, Priority), 10 rows per slide, sorted by category then priority. Failed Test Case Details slides include Impact, Best Practice Reference, and Remediation columns.
 
 ### HTML Export
 Self-contained single `.html` file (~400KB) that mirrors the web dashboard. Opens offline from disk with no external dependencies (Google Fonts replaced with system font stack). Features:
 - **Two tabs**: Test Results (summary cards, filters, category table, collapsible test suites) and Cluster Architecture (arch summary, environment sections)
 - **Dark/light theme toggle**: Moon/sun button in nav bar, persisted to `localStorage`
-- **Interactive filters**: Category dropdown, scenario dropdown, status checkboxes — all functional via inline JS
+- **Interactive filters**: Category dropdown, scenario dropdown, priority multi-select checkbox dropdown, status checkboxes — all functional via inline JS
 - **Back-to-top button**: Floating button appears after scrolling 400px
 - **Embedded data**: `resultsBySuite` JSON embedded in inline script for dynamic filter updates
 
@@ -182,10 +193,10 @@ Both HTML and XLSX exports are available for comparison sessions (both upload-co
 
 **Comparison XLSX** (`comparison-xlsx-generator.js`): Three worksheets:
 1. **Comparison Summary** — Report A/B metadata, overall delta table (Passed/Failed/Skipped A→B + delta), change summary counts, per-suite breakdown
-2. **Changed Tests** — Only non-unchanged tests, sorted by change type (regressed first). Columns: Test ID, Category, Report A/B Status, Change, Details. Color-coded cells.
-3. **All Tests Comparison** — Every test with status, change, priority, description. Same color coding.
+2. **Changed Tests** — Only non-unchanged tests, sorted by change type (regressed first). Columns: Test ID, Category, Report A/B Status, Change, Impact, Details. Color-coded cells.
+3. **All Tests Comparison** — Every test with status, change, priority, impact, description. Same color coding.
 
-**Comparison HTML** (`comparison-html-generator.js`): Self-contained file mirroring the web comparison view. Includes comparison header, delta summary pills, totals cards, category/change filter dropdowns, collapsible per-suite tables, dark/light theme toggle. Reuses utility functions from `html-generator.js`.
+**Comparison HTML** (`comparison-html-generator.js`): Self-contained file mirroring the web comparison view. Includes comparison header, delta summary pills, totals cards, category/change/priority filter dropdowns, collapsible per-suite tables with impact and best practice reference columns, dark/light theme toggle. Reuses utility functions from `html-generator.js`.
 
 Surfaced in: dashboard Environment tab, PPTX environment slide, XLSX "Environment Summary" worksheet, CSV header block, HTML export Environment tab.
 

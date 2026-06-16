@@ -49,7 +49,6 @@ function parseCatalog(md) {
         description: '',
         remediation: '',
         bestPracticeReference: '',
-        exceptionProcess: '',
         tags: '',
         impact: '',
         scenarios: {}
@@ -102,8 +101,6 @@ function parseCatalog(md) {
       catalog[currentTest].remediation = value;
     } else if (keyLower === 'best practice reference') {
       catalog[currentTest].bestPracticeReference = value;
-    } else if (keyLower === 'exception process') {
-      catalog[currentTest].exceptionProcess = value;
     } else if (keyLower === 'tags') {
       catalog[currentTest].tags = value;
     } else if (keyLower === 'impact statement' || keyLower === 'impact') {
@@ -118,7 +115,22 @@ function parseCatalog(md) {
     }
   }
 
+  for (const entry of Object.values(catalog)) {
+    if (entry.remediation) {
+      entry.remediation = stripExceptionText(entry.remediation);
+    }
+  }
+
   return catalog;
+}
+
+function stripExceptionText(text) {
+  return text
+    .split(/(?<=[.;])\s+|(?:^|\s+)(?=No exceptions?\b)/i)
+    .filter(s => !/\bexceptions?\b/i.test(s))
+    .join(' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
 }
 
 async function main() {

@@ -81,7 +81,7 @@ async function loadReportHistory() {
       const totals = report.totals || {};
       card.innerHTML = `
         <label class="history-checkbox">
-          <input type="checkbox" onchange="toggleHistorySelect('${report.id}', this)">
+          <input type="checkbox" aria-label="Select ${escapeHtml(report.name)} for comparison" onchange="toggleHistorySelect('${report.id}', this)">
         </label>
         <div class="history-card-info">
           <h3 class="history-card-title">${escapeHtml(report.name)}</h3>

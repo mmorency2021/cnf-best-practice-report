@@ -223,7 +223,6 @@ function parse(filePath, filename) {
       normalizedState,
       description: catalogInfo.description || '',
       remediation: catalogInfo.remediation || '',
-      exceptionProcess: catalogInfo.exceptionProcess || '',
       bestPracticeRef: catalogInfo.bestPracticeReference || '',
       failureDetails,
       categoryClassification,

@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body>
+  <a href="#dashboard-layout" class="skip-link">Skip to main content</a>
 
   <!-- Navigation Bar -->
   <nav id="app-nav" class="app-nav">
@@ -45,8 +46,8 @@
               <h3>claim.json</h3>
             </div>
             <p>Certsuite test results file</p>
-            <div class="drop-zone" data-input="claim-file">
-              <span class="drop-zone-icon">&#128196;</span>
+            <div class="drop-zone" data-input="claim-file" role="button" tabindex="0" aria-label="Upload claim.json file">
+              <span class="drop-zone-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></span>
               <span class="drop-zone-text">Drop claim.json here or click to browse</span>
               <span class="drop-zone-file"></span>
               <input type="file" id="claim-file" name="claim" accept=".json" class="file-input">
@@ -59,8 +60,8 @@
               <h3>Execution Log</h3>
             </div>
             <p>Validates test run health</p>
-            <div class="drop-zone" data-input="log-file">
-              <span class="drop-zone-icon">&#128220;</span>
+            <div class="drop-zone" data-input="log-file" role="button" tabindex="0" aria-label="Upload execution log file">
+              <span class="drop-zone-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></span>
               <span class="drop-zone-text">Drop .log file here or click to browse</span>
               <span class="drop-zone-file"></span>
               <input type="file" id="log-file" name="log" accept=".log,.txt" class="file-input">
@@ -73,8 +74,8 @@
               <h3>Priority Mapping</h3>
             </div>
             <p>Override default test priorities (CSV or Excel)</p>
-            <div class="drop-zone" data-input="priority-file">
-              <span class="drop-zone-icon">&#128203;</span>
+            <div class="drop-zone" data-input="priority-file" role="button" tabindex="0" aria-label="Upload priority mapping file">
+              <span class="drop-zone-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg></span>
               <span class="drop-zone-text">Drop priority CSV/XLSX here or click to browse</span>
               <span class="drop-zone-file"></span>
               <input type="file" id="priority-file" name="priorityMapping" accept=".csv,.xlsx,.xls" class="file-input">
@@ -100,8 +101,8 @@
                 <h3>claim.json</h3>
               </div>
               <p>First certsuite results</p>
-              <div class="drop-zone" data-input="claim-file-a">
-                <span class="drop-zone-icon">&#128196;</span>
+              <div class="drop-zone" data-input="claim-file-a" role="button" tabindex="0" aria-label="Upload Report A claim.json">
+                <span class="drop-zone-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></span>
                 <span class="drop-zone-text">Drop claim.json here or click to browse</span>
                 <span class="drop-zone-file"></span>
                 <input type="file" id="claim-file-a" name="claim_a" accept=".json" class="file-input">
@@ -112,8 +113,8 @@
                 <span class="badge badge-optional">Optional</span>
                 <h3>Execution Log</h3>
               </div>
-              <div class="drop-zone" data-input="log-file-a">
-                <span class="drop-zone-icon">&#128220;</span>
+              <div class="drop-zone" data-input="log-file-a" role="button" tabindex="0" aria-label="Upload Report A log file">
+                <span class="drop-zone-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></span>
                 <span class="drop-zone-text">Drop .log file here</span>
                 <span class="drop-zone-file"></span>
                 <input type="file" id="log-file-a" name="log_a" accept=".log,.txt" class="file-input">
@@ -128,8 +129,8 @@
                 <h3>claim.json</h3>
               </div>
               <p>Second certsuite results</p>
-              <div class="drop-zone" data-input="claim-file-b">
-                <span class="drop-zone-icon">&#128196;</span>
+              <div class="drop-zone" data-input="claim-file-b" role="button" tabindex="0" aria-label="Upload Report B claim.json">
+                <span class="drop-zone-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></span>
                 <span class="drop-zone-text">Drop claim.json here or click to browse</span>
                 <span class="drop-zone-file"></span>
                 <input type="file" id="claim-file-b" name="claim_b" accept=".json" class="file-input">
@@ -140,8 +141,8 @@
                 <span class="badge badge-optional">Optional</span>
                 <h3>Execution Log</h3>
               </div>
-              <div class="drop-zone" data-input="log-file-b">
-                <span class="drop-zone-icon">&#128220;</span>
+              <div class="drop-zone" data-input="log-file-b" role="button" tabindex="0" aria-label="Upload Report B log file">
+                <span class="drop-zone-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></span>
                 <span class="drop-zone-text">Drop .log file here</span>
                 <span class="drop-zone-file"></span>
                 <input type="file" id="log-file-b" name="log_b" accept=".log,.txt" class="file-input">
@@ -157,7 +158,7 @@
         </div>
       </form>
 
-      <div id="upload-error" class="alert alert-error" style="display:none;"></div>
+      <div id="upload-error" class="alert alert-error" role="alert" style="display:none;"></div>
     </div>
   </div>
 
@@ -188,10 +189,10 @@
 
     <!-- Export Bar -->
     <div class="export-bar">
-      <button id="btn-export-pptx" class="btn btn-export">Download PPTX</button>
-      <button id="btn-export-xlsx" class="btn btn-export">Download Excel</button>
-      <button id="btn-export-csv" class="btn btn-export">Download CSV</button>
-      <button id="btn-export-html" class="btn btn-export">Download HTML</button>
+      <button id="btn-export-pptx" class="btn btn-export" aria-label="Download PowerPoint report"><span class="btn-spinner"></span><span class="btn-label">Download PPTX</span></button>
+      <button id="btn-export-xlsx" class="btn btn-export" aria-label="Download Excel report"><span class="btn-spinner"></span><span class="btn-label">Download Excel</span></button>
+      <button id="btn-export-csv" class="btn btn-export" aria-label="Download CSV report"><span class="btn-spinner"></span><span class="btn-label">Download CSV</span></button>
+      <button id="btn-export-html" class="btn btn-export" aria-label="Download HTML report"><span class="btn-spinner"></span><span class="btn-label">Download HTML</span></button>
       <button id="btn-save-report" class="btn btn-save">Save Report</button>
     </div>
 
@@ -217,6 +218,19 @@
               <option value="telco-mandatory">Telco Mandatory</option>
               <option value="telco-optional">Telco Optional</option>
             </select>
+          </div>
+          <div class="filter-group">
+            <label>Priority</label>
+            <div class="multi-select" id="filter-priority">
+              <button type="button" class="multi-select-toggle filter-select" aria-expanded="false">All Priorities</button>
+              <div class="multi-select-menu">
+                <label><input type="checkbox" value="0" checked> P0 — Security Critical</label>
+                <label><input type="checkbox" value="1" checked> P1 — Host Access</label>
+                <label><input type="checkbox" value="2" checked> P2 — Cluster/Scheduling</label>
+                <label><input type="checkbox" value="3" checked> P3 — Lifecycle</label>
+                <label><input type="checkbox" value="4" checked> P4 — Advisory</label>
+              </div>
+            </div>
           </div>
           <div class="filter-group">
             <label>Status</label>
@@ -271,8 +285,8 @@
     </header>
 
     <div class="export-bar">
-      <button id="btn-comp-export-xlsx" class="btn btn-export">Download Excel</button>
-      <button id="btn-comp-export-html" class="btn btn-export">Download HTML</button>
+      <button id="btn-comp-export-xlsx" class="btn btn-export" aria-label="Download comparison Excel report"><span class="btn-spinner"></span><span class="btn-label">Download Excel</span></button>
+      <button id="btn-comp-export-html" class="btn btn-export" aria-label="Download comparison HTML report"><span class="btn-spinner"></span><span class="btn-label">Download HTML</span></button>
     </div>
 
     <div class="comparison-body">
@@ -290,12 +304,24 @@
           <label for="comp-filter-change">Change</label>
           <select id="comp-filter-change" class="filter-select">
             <option value="all">All Changes</option>
-            <option value="regressed">Regressed</option>
-            <option value="improved">Improved</option>
+            <option value="changed">Changed</option>
             <option value="unchanged">Unchanged</option>
             <option value="added">Added</option>
             <option value="removed">Removed</option>
           </select>
+        </div>
+        <div class="filter-group">
+          <label>Priority</label>
+          <div class="multi-select" id="comp-filter-priority">
+            <button type="button" class="multi-select-toggle filter-select" aria-expanded="false">All Priorities</button>
+            <div class="multi-select-menu">
+              <label><input type="checkbox" value="0" checked> P0 — Security Critical</label>
+              <label><input type="checkbox" value="1" checked> P1 — Host Access</label>
+              <label><input type="checkbox" value="2" checked> P2 — Cluster/Scheduling</label>
+              <label><input type="checkbox" value="3" checked> P3 — Lifecycle</label>
+              <label><input type="checkbox" value="4" checked> P4 — Advisory</label>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -318,9 +344,9 @@
   </div>
 
   <!-- Save Report Modal -->
-  <div id="save-modal" class="modal-overlay" style="display:none;">
+  <div id="save-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="save-modal-title" style="display:none;">
     <div class="modal-card">
-      <h3>Save Report</h3>
+      <h3 id="save-modal-title">Save Report</h3>
       <label for="report-name-input">Report Name</label>
       <input type="text" id="report-name-input" class="modal-input" placeholder="e.g., vDUCNF00 - May 2026">
       <div class="modal-actions">
@@ -331,10 +357,10 @@
   </div>
 
   <!-- Toast Notification -->
-  <div id="toast" class="toast" style="display:none;"></div>
+  <div id="toast" class="toast" role="status" aria-live="polite" style="display:none;"></div>
 
   <!-- Back to Top -->
-  <button class="back-to-top" id="back-to-top" title="Back to top">&#8679;</button>
+  <button class="back-to-top" id="back-to-top" title="Back to top" aria-label="Back to top"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg></button>
 
   <script src="/js/app.js"></script>
   <script src="/js/history.js"></script>

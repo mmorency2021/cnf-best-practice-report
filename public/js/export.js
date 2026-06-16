@@ -1,8 +1,12 @@
 function initExportButtons(sessionId) {
-  document.getElementById('btn-export-pptx').onclick = () => downloadExport('pptx', sessionId);
-  document.getElementById('btn-export-xlsx').onclick = () => downloadExport('xlsx', sessionId);
-  document.getElementById('btn-export-csv').onclick = () => downloadExport('csv', sessionId);
-  document.getElementById('btn-export-html').onclick = () => downloadExport('html', sessionId);
+  const pptx = document.getElementById('btn-export-pptx');
+  const xlsx = document.getElementById('btn-export-xlsx');
+  const csv = document.getElementById('btn-export-csv');
+  const html = document.getElementById('btn-export-html');
+  pptx.onclick = () => downloadExport('pptx', sessionId, pptx);
+  xlsx.onclick = () => downloadExport('xlsx', sessionId, xlsx);
+  csv.onclick = () => downloadExport('csv', sessionId, csv);
+  html.onclick = () => downloadExport('html', sessionId, html);
 
   const saveBtn = document.getElementById('btn-save-report');
   if (saveBtn) {
@@ -20,14 +24,28 @@ function initExportButtons(sessionId) {
 function initComparisonExportButtons(sessionId) {
   const xlsxBtn = document.getElementById('btn-comp-export-xlsx');
   const htmlBtn = document.getElementById('btn-comp-export-html');
-  if (xlsxBtn) xlsxBtn.onclick = () => downloadExport('xlsx', sessionId);
-  if (htmlBtn) htmlBtn.onclick = () => downloadExport('html', sessionId);
+  if (xlsxBtn) xlsxBtn.onclick = () => downloadExport('xlsx', sessionId, xlsxBtn);
+  if (htmlBtn) htmlBtn.onclick = () => downloadExport('html', sessionId, htmlBtn);
 }
 
-async function downloadExport(type, sessionId) {
+async function downloadExport(type, sessionId, triggerBtn) {
   if (!sessionId) return;
+
+  if (triggerBtn) {
+    triggerBtn.classList.add('is-loading');
+    const label = triggerBtn.querySelector('.btn-label');
+    const origText = label?.textContent;
+    if (label) label.textContent = 'Exporting...';
+    triggerBtn._origText = origText;
+  }
+
   try {
-    const resp = await fetch(`/api/export/${type}/${sessionId}`);
+    let exportUrl = `/api/export/${type}/${sessionId}`;
+    const selectedPriorities = typeof getSelectedPriorities === 'function' ? getSelectedPriorities('filter-priority') || getSelectedPriorities('comp-filter-priority') : null;
+    if (selectedPriorities) {
+      exportUrl += '?priorities=' + Array.from(selectedPriorities).join(',');
+    }
+    const resp = await fetch(exportUrl);
     if (!resp.ok) {
       const err = await resp.json().catch(() => ({ error: 'Export failed' }));
       throw new Error(err.error || 'Export failed');
@@ -46,5 +64,11 @@ async function downloadExport(type, sessionId) {
     URL.revokeObjectURL(url);
   } catch (err) {
     showToast('Export failed: ' + err.message, 'error');
+  } finally {
+    if (triggerBtn) {
+      triggerBtn.classList.remove('is-loading');
+      const label = triggerBtn.querySelector('.btn-label');
+      if (label && triggerBtn._origText) label.textContent = triggerBtn._origText;
+    }
   }
 }
