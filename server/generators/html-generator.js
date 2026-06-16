@@ -369,8 +369,8 @@ function buildArchSummaryHtml(env, results) {
     </div>
     <div class="arch-card arch-info" data-target="env-pods">
       <div class="arch-card-value">${formatCpu(totalCpuReq)} / ${formatCpu(totalCpuLim)}</div>
-      <div class="arch-card-label">Pod Resources (CPU)</div>
-      <div class="arch-card-detail">${formatMem(totalMemReq)} / ${formatMem(totalMemLim)} memory</div>
+      <div class="arch-card-label">Total CPU (req/lim)</div>
+      <div class="arch-card-detail">${formatMem(totalMemReq)} / ${formatMem(totalMemLim)} Total Memory</div>
     </div>
     <div class="arch-card arch-info" data-target="env-pods">
       <div class="arch-card-value">${deps.length + sts.length}</div>

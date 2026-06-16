@@ -248,9 +248,13 @@ function addEnvironmentSheet(workbook, environment) {
     const fmtCpu = m => m === 0 ? '0' : m % 1000 === 0 ? String(m/1000) : (m/1000).toFixed(1);
     const fmtMem = m => m === 0 ? '0' : m >= 1024 ? (m/1024).toFixed(1).replace(/\.0$/, '') + 'Gi' : Math.round(m) + 'Mi';
     const totalsRow = sheet.getRow(row++);
-    totalsRow.values = ['', '', '', 'TOTALS', '', fmtCpu(totalCpuReq), fmtCpu(totalCpuLim), fmtMem(totalMemReq), fmtMem(totalMemLim), '', '', ''];
+    totalsRow.values = ['', '', '', '', 'Total CPU', fmtCpu(totalCpuReq), fmtCpu(totalCpuLim), '', '', '', '', ''];
     totalsRow.font = { bold: true, size: 10 };
     totalsRow.eachCell(c => { c.border = thinBorder; });
+    const memTotalsRow = sheet.getRow(row++);
+    memTotalsRow.values = ['', '', '', '', 'Total Memory', '', '', fmtMem(totalMemReq), fmtMem(totalMemLim), '', '', ''];
+    memTotalsRow.font = { bold: true, size: 10 };
+    memTotalsRow.eachCell(c => { c.border = thinBorder; });
   }
   row++;
 

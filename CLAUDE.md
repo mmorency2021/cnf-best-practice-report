@@ -103,7 +103,7 @@ Both implement the same interface: `save()`, `list()`, `get()`, `delete()`. Load
 ### Priority Scale (XLSX + PPTX)
 - **0**: Security-critical (root user, privilege escalation)
 - **1**: Host access violations (host PID/path/network/IPC, reserved ports, network policy)
-- **2**: Cluster role bindings, scheduling, tolerations, probes, SSH
+- **2**: Cluster role bindings, scheduling, tolerations, probes, SSH, helm version
 - **3**: PreStop hooks, pod owner type
 - **4**: One process per container, non-UBI base image
 

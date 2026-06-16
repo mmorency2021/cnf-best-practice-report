@@ -33,7 +33,7 @@ const PRIORITY_MAP = {
   'access-control-sys-nice-realtime-capability': 1,
   'access-control-sys-ptrace-capability': 1,
   'affiliated-certification-container-is-certified-digest': 4,
-  'affiliated-certification-helm-version': 3,
+  'affiliated-certification-helm-version': 2,
   'affiliated-certification-helmchart-is-certified': 4,
   'affiliated-certification-operator-is-certified': 4,
   'lifecycle-affinity-required-pods': 3,

@@ -150,7 +150,7 @@ Failed case data with environment header block, suitable for import into Google 
 |----------|-------------|
 | 0 | Security-critical (root user, privilege escalation) |
 | 1 | Host access violations (host PID/path/network/IPC, capabilities, reserved ports) |
-| 2 | Cluster role bindings, scheduling, tolerations, probes, SSH daemons |
+| 2 | Cluster role bindings, scheduling, tolerations, probes, SSH daemons, helm version |
 | 3 | PreStop hooks, pod owner type |
 | 4 | One process per container, non-UBI base image |
 

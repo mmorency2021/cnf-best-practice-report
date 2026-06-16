@@ -381,9 +381,16 @@ function addEnvironmentSlide(pptx, cnf, environment) {
     const fCpu = m => m === 0 ? '0' : m % 1000 === 0 ? String(m/1000) : (m/1000).toFixed(1);
     const fMem = m => m === 0 ? '0' : m >= 1024 ? (m/1024).toFixed(1).replace(/\.0$/, '') + 'Gi' : Math.round(m) + 'Mi';
     podTable.push([
-      { text: 'TOTALS', options: { fontSize: 8, bold: true } },
+      { text: 'Total CPU', options: { fontSize: 8, bold: true } },
       { text: '', options: { fontSize: 8 } },
       { text: `${fCpu(tCpuReq)} / ${fCpu(tCpuLim)}`, options: { fontSize: 8, bold: true } },
+      { text: '', options: { fontSize: 8 } },
+      { text: '', options: { fontSize: 8 } }
+    ]);
+    podTable.push([
+      { text: 'Total Memory', options: { fontSize: 8, bold: true } },
+      { text: '', options: { fontSize: 8 } },
+      { text: '', options: { fontSize: 8 } },
       { text: `${fMem(tMemReq)} / ${fMem(tMemLim)}`, options: { fontSize: 8, bold: true } },
       { text: '', options: { fontSize: 8 } }
     ]);
