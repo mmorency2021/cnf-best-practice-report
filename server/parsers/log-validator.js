@@ -4,8 +4,10 @@ const readline = require('readline');
 async function validate(filePath) {
   const warnings = [];
   let totalLines = 0;
-  let probePodMissing = false;
-  let crashDetected = false;
+  let probePodIssue = false;
+  let probePodActive = false;
+  let lastCrashLine = 0;
+  let lastActivityLine = 0;
   const lastLines = [];
   const MAX_LAST_LINES = 100;
 
@@ -14,14 +16,16 @@ async function validate(filePath) {
 
   for await (const line of rl) {
     totalLines++;
-    if (/probe.*pod.*not\s+(running|found|ready)/i.test(line) || /probe.*daemonset.*not\s+(running|found|ready|spawn)/i.test(line) || /failed.*to.*deploy.*probe/i.test(line)) probePodMissing = true;
-    if (/\b(panic|fatal|segfault)\b/i.test(line)) crashDetected = true;
+    if (/certsuite-probe.*not\s+(running|found|ready)/i.test(line) || /probe\s*(daemonset|daemon\s*set).*not\s+(running|found|ready|spawn)/i.test(line) || /failed.*to.*deploy.*certsuite.*probe/i.test(line) || /probe\s*pod.*failed\s*to\s*(start|deploy|create)/i.test(line)) probePodIssue = true;
+    if (/certsuite-probe-\w+.*container/i.test(line) || /execute command on.*certsuite-probe/i.test(line)) probePodActive = true;
+    if (/\b(panic|fatal|segfault)\b/i.test(line)) lastCrashLine = totalLines;
+    if (/certsuite-probe-\w+.*container/i.test(line) || /execute command on.*certsuite-probe/i.test(line) || /\bRunning\b.*\btest\b/i.test(line) || /\bSuite\b.*\b(started|running)\b/i.test(line)) lastActivityLine = totalLines;
 
     lastLines.push(line);
     if (lastLines.length > MAX_LAST_LINES) lastLines.shift();
   }
 
-  if (probePodMissing) {
+  if (probePodIssue && !probePodActive) {
     warnings.push({
       type: 'probe-pod-missing',
       message: 'Probe pod not running or not found during test execution',
@@ -29,7 +33,7 @@ async function validate(filePath) {
     });
   }
 
-  if (crashDetected) {
+  if (lastCrashLine > 0 && lastActivityLine <= lastCrashLine) {
     warnings.push({
       type: 'crash-detected',
       message: 'Crash or fatal error detected in execution log',

@@ -14,6 +14,19 @@ const STATUS_COLORS = {
   skipped: { bg: 'FF6C757D', font: 'FFFFFFFF' }
 };
 
+function formatFailureDetails(failureDetails) {
+  if (!Array.isArray(failureDetails) || failureDetails.length === 0) return '';
+  return failureDetails.map(d => {
+    const parts = [];
+    if (d.podName) parts.push(d.podName);
+    else if (d.objectType) parts.push(d.objectType);
+    if (d.containerName) parts.push('container: ' + d.containerName);
+    if (d.namespace) parts.push('ns: ' + d.namespace);
+    if (d.reason) parts.push(d.reason);
+    return parts.length > 0 ? parts.join(' | ') : JSON.stringify(d);
+  }).join('\n');
+}
+
 async function generate(claimData) {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'CNF Best Practice Report Generator';
@@ -27,6 +40,8 @@ async function generate(claimData) {
     { header: 'Test ID', key: 'testId', width: 45 },
     { header: 'Category', key: 'category', width: 25 },
     { header: 'Impact', key: 'impact', width: 40 },
+    { header: 'Details (Non-Compliant Objects)', key: 'details', width: 60 },
+    { header: 'Best Practice Reference', key: 'bestPracticeRef', width: 45 },
     { header: 'Remediation', key: 'remediation', width: 50 },
     { header: 'Priority', key: 'priority', width: 10 },
     { header: 'Partner Comments', key: 'comments', width: 35 }
@@ -53,6 +68,8 @@ async function generate(claimData) {
       testId: result.id,
       category: formatSuiteName(result.suite || ''),
       impact: result.impact || result.description || '',
+      details: formatFailureDetails(result.failureDetails),
+      bestPracticeRef: result.bestPracticeRef || '',
       remediation: result.remediation || '',
       priority: result.priority ?? 4,
       comments: ''
@@ -72,7 +89,7 @@ async function generate(claimData) {
   const totalRows = sheet.rowCount;
   for (let i = 1; i <= totalRows; i++) {
     const row = sheet.getRow(i);
-    for (let j = 1; j <= 6; j++) {
+    for (let j = 1; j <= 8; j++) {
       const cell = row.getCell(j);
       cell.border = {
         top: { style: 'thin', color: { argb: 'FFE0E0E0' } },
@@ -210,6 +227,30 @@ function addEnvironmentSheet(workbook, environment) {
         r.eachCell(c => { c.border = thinBorder; });
       }
     }
+    // Resource totals row
+    let totalCpuReq = 0, totalCpuLim = 0, totalMemReq = 0, totalMemLim = 0;
+    for (const pod of testPods) {
+      for (const c of (pod.containers || [])) {
+        const res = c.resources || {};
+        const req = res.requests || {};
+        const lim = res.limits || {};
+        const cpuR = String(req.cpu || '');
+        const cpuL = String(lim.cpu || '');
+        const memR = String(req.memory || '');
+        const memL = String(lim.memory || '');
+        totalCpuReq += cpuR.endsWith('m') ? (parseInt(cpuR, 10) || 0) : (parseFloat(cpuR) || 0) * 1000;
+        totalCpuLim += cpuL.endsWith('m') ? (parseInt(cpuL, 10) || 0) : (parseFloat(cpuL) || 0) * 1000;
+        const parseM = v => { if (!v) return 0; if (v.endsWith('Gi')) return (parseFloat(v)||0)*1024; if (v.endsWith('Mi')) return parseFloat(v)||0; if (v.endsWith('Ki')) return (parseFloat(v)||0)/1024; if (v.endsWith('G')) return (parseFloat(v)||0)*1000; if (v.endsWith('M')) return parseFloat(v)||0; return 0; };
+        totalMemReq += parseM(memR);
+        totalMemLim += parseM(memL);
+      }
+    }
+    const fmtCpu = m => m === 0 ? '0' : m % 1000 === 0 ? String(m/1000) : (m/1000).toFixed(1);
+    const fmtMem = m => m === 0 ? '0' : m >= 1024 ? (m/1024).toFixed(1).replace(/\.0$/, '') + 'Gi' : Math.round(m) + 'Mi';
+    const totalsRow = sheet.getRow(row++);
+    totalsRow.values = ['', '', '', 'TOTALS', '', fmtCpu(totalCpuReq), fmtCpu(totalCpuLim), fmtMem(totalMemReq), fmtMem(totalMemLim), '', '', ''];
+    totalsRow.font = { bold: true, size: 10 };
+    totalsRow.eachCell(c => { c.border = thinBorder; });
   }
   row++;
 
@@ -273,6 +314,8 @@ function addAllTestsSheet(workbook, claimData) {
     { header: 'Status', key: 'status', width: 12 },
     { header: 'Priority', key: 'priority', width: 10 },
     { header: 'Impact', key: 'impact', width: 40 },
+    { header: 'Details (Non-Compliant Objects)', key: 'details', width: 60 },
+    { header: 'Best Practice Reference', key: 'bestPracticeRef', width: 45 },
     { header: 'Remediation', key: 'remediation', width: 50 },
     { header: 'Scenario', key: 'scenario', width: 20 }
   ];
@@ -298,6 +341,8 @@ function addAllTestsSheet(workbook, claimData) {
       status: result.normalizedState || 'unknown',
       priority: result.priority ?? 4,
       impact: result.impact || result.description || '',
+      details: result.normalizedState === 'failed' ? formatFailureDetails(result.failureDetails) : '',
+      bestPracticeRef: result.bestPracticeRef || '',
       remediation: result.remediation || '',
       scenario: result.scenario || ''
     });
@@ -320,7 +365,7 @@ function addAllTestsSheet(workbook, claimData) {
   const totalRows = sheet.rowCount;
   for (let i = 1; i <= totalRows; i++) {
     const r = sheet.getRow(i);
-    for (let j = 1; j <= 7; j++) {
+    for (let j = 1; j <= 9; j++) {
       r.getCell(j).border = {
         top: { style: 'thin', color: { argb: 'FFE0E0E0' } },
         left: { style: 'thin', color: { argb: 'FFE0E0E0' } },

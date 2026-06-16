@@ -360,6 +360,34 @@ function addEnvironmentSlide(pptx, cnf, environment) {
       ]);
     }
 
+    // Resource totals row
+    let tCpuReq = 0, tCpuLim = 0, tMemReq = 0, tMemLim = 0;
+    for (const pod of testPods) {
+      for (const c of (pod.containers || [])) {
+        const res = c.resources || {};
+        const req = res.requests || {};
+        const lim = res.limits || {};
+        const cpuR = String(req.cpu || '');
+        const cpuL = String(lim.cpu || '');
+        tCpuReq += cpuR.endsWith('m') ? (parseInt(cpuR, 10) || 0) : (parseFloat(cpuR) || 0) * 1000;
+        tCpuLim += cpuL.endsWith('m') ? (parseInt(cpuL, 10) || 0) : (parseFloat(cpuL) || 0) * 1000;
+        const memR = String(req.memory || '');
+        const memL = String(lim.memory || '');
+        const pM = v => { if (!v) return 0; if (v.endsWith('Gi')) return (parseFloat(v)||0)*1024; if (v.endsWith('Mi')) return parseFloat(v)||0; if (v.endsWith('Ki')) return (parseFloat(v)||0)/1024; if (v.endsWith('G')) return (parseFloat(v)||0)*1000; if (v.endsWith('M')) return parseFloat(v)||0; return 0; };
+        tMemReq += pM(memR);
+        tMemLim += pM(memL);
+      }
+    }
+    const fCpu = m => m === 0 ? '0' : m % 1000 === 0 ? String(m/1000) : (m/1000).toFixed(1);
+    const fMem = m => m === 0 ? '0' : m >= 1024 ? (m/1024).toFixed(1).replace(/\.0$/, '') + 'Gi' : Math.round(m) + 'Mi';
+    podTable.push([
+      { text: 'TOTALS', options: { fontSize: 8, bold: true } },
+      { text: '', options: { fontSize: 8 } },
+      { text: `${fCpu(tCpuReq)} / ${fCpu(tCpuLim)}`, options: { fontSize: 8, bold: true } },
+      { text: `${fMem(tMemReq)} / ${fMem(tMemLim)}`, options: { fontSize: 8, bold: true } },
+      { text: '', options: { fontSize: 8 } }
+    ]);
+
     slide.addTable(podTable, {
       x: 0.8, y: podTableY + 0.4, w: 12, colW: [3.5, 1, 2.5, 2.5, 2.5],
       border: { pt: 0.5, color: 'E0E0E0' },
@@ -543,6 +571,7 @@ function addFailedDetailsSlides(pptx, results) {
         { text: 'Test ID', options: { bold: true, color: WHITE, fill: { color: RH_DARK }, fontSize: 9 } },
         { text: 'Category', options: { bold: true, color: WHITE, fill: { color: RH_DARK }, fontSize: 9 } },
         { text: 'Impact', options: { bold: true, color: WHITE, fill: { color: RH_DARK }, fontSize: 9 } },
+        { text: 'Best Practice Ref', options: { bold: true, color: WHITE, fill: { color: RH_DARK }, fontSize: 9 } },
         { text: 'Remediation', options: { bold: true, color: WHITE, fill: { color: RH_DARK }, fontSize: 9 } },
         { text: 'Priority', options: { bold: true, color: WHITE, fill: { color: RH_DARK }, fontSize: 9, align: 'center' } }
       ]
@@ -550,17 +579,19 @@ function addFailedDetailsSlides(pptx, results) {
 
     for (const r of batch) {
       const pColor = PRIORITY_COLORS[r.priority ?? 4] || '6C757D';
+      const refText = (r.bestPracticeRef || '').replace(/^https?:\/\//, '');
       tableData.push([
         { text: r.id, options: { fontSize: 8, fontFace: 'Courier New' } },
         { text: formatSuiteName(r.suite || ''), options: { fontSize: 8 } },
         { text: r.impact || r.description || '', options: { fontSize: 8 } },
+        { text: refText, options: { fontSize: 7, color: '0070C0' } },
         { text: r.remediation || '', options: { fontSize: 8 } },
         { text: String(r.priority ?? 4), options: { fontSize: 10, bold: true, color: WHITE, fill: { color: pColor }, align: 'center' } }
       ]);
     }
 
     slide.addTable(tableData, {
-      x: 0.3, y: 1.3, w: 12.7, colW: [3, 1.8, 3.2, 3.5, 1.2],
+      x: 0.3, y: 1.3, w: 12.7, colW: [2.5, 1.5, 2.8, 2.2, 2.5, 1.2],
       border: { pt: 0.5, color: 'E0E0E0' },
       rowH: 0.9, autoPage: false
     });

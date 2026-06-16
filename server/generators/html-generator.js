@@ -11,6 +11,17 @@ function escapeHtml(str) {
     .replace(/'/g, '&#39;');
 }
 
+function formatFailureDetail(d) {
+  const parts = [];
+  if (d.podName) parts.push(d.podName);
+  else if (d.objectType) parts.push(d.objectType);
+  if (d.containerName) parts.push('container: ' + d.containerName);
+  if (d.namespace) parts.push('ns: ' + d.namespace);
+  if (d.reason) parts.push(d.reason);
+  if (parts.length > 0) return parts.join(' | ');
+  return JSON.stringify(d);
+}
+
 function truncate(str, max) {
   if (!str || str.length <= max) return str;
   return str.slice(0, max) + '...';
@@ -198,13 +209,12 @@ function buildTestRows(results) {
     let detailsCell = '';
 
     if (r.normalizedState === 'failed' && r.failureDetails) {
-      let failText = '';
-      if (Array.isArray(r.failureDetails)) {
-        failText = r.failureDetails.map(d => d.reason || d.podName || d.objectType || JSON.stringify(d)).join('; ');
-      } else {
-        failText = String(r.failureDetails);
+      if (Array.isArray(r.failureDetails) && r.failureDetails.length > 0) {
+        const items = r.failureDetails.map(d => `<li>${escapeHtml(formatFailureDetail(d))}</li>`).join('');
+        detailsCell = `<div class="failure-details"><ul class="fail-list">${items}</ul></div>`;
+      } else if (r.failureDetails) {
+        detailsCell = `<div class="failure-details">${escapeHtml(String(r.failureDetails))}</div>`;
       }
-      detailsCell = `<div class="failure-details">${escapeHtml(truncate(failText, 300))}</div>`;
       if (r.remediation) {
         detailsCell += `<div class="remediation-box" style="margin-top:4px;">${escapeHtml(r.remediation)}</div>`;
       }
@@ -222,10 +232,12 @@ function buildTestRows(results) {
     }
 
     const scenarioJson = escapeHtml(JSON.stringify(r.scenarios || {}));
-    return `<tr data-status="${r.normalizedState}" data-suite="${escapeHtml(r.suite)}" data-scenario="${scenarioJson}">
+    return `<tr data-status="${r.normalizedState}" data-suite="${escapeHtml(r.suite)}" data-priority="${r.priority ?? 4}" data-scenario="${scenarioJson}">
       <td class="test-id">${escapeHtml(r.id)}</td>
       <td><span class="status-badge ${statusClass}">${r.normalizedState}</span></td>
       <td>${escapeHtml(r.description || '')}</td>
+      <td class="impact-cell">${escapeHtml(r.impact || '')}</td>
+      <td class="ref-cell">${r.bestPracticeRef ? `<a href="${escapeHtml(r.bestPracticeRef)}" target="_blank" rel="noopener">Link</a>` : ''}</td>
       <td>${detailsCell}</td>
       <td><span class="priority-badge ${priorityClass}">${r.priority ?? '-'}</span></td>
     </tr>`;
@@ -256,6 +268,8 @@ function buildTestTablesHtml(resultsBySuite) {
             <th>Test ID</th>
             <th>Status</th>
             <th>Description</th>
+            <th>Impact</th>
+            <th>Best Practice Ref</th>
             <th>Details</th>
             <th>Priority</th>
           </tr></thead>
@@ -265,6 +279,37 @@ function buildTestTablesHtml(resultsBySuite) {
     </div>`;
   }
   return html;
+}
+
+function parseCpu(val) {
+  if (!val) return 0;
+  const s = String(val);
+  if (s.endsWith('m')) return parseInt(s, 10) || 0;
+  return (parseFloat(s) || 0) * 1000;
+}
+
+function parseMem(val) {
+  if (!val) return 0;
+  const s = String(val);
+  if (s.endsWith('Gi')) return (parseFloat(s) || 0) * 1024;
+  if (s.endsWith('Mi')) return parseFloat(s) || 0;
+  if (s.endsWith('Ki')) return (parseFloat(s) || 0) / 1024;
+  if (s.endsWith('G')) return (parseFloat(s) || 0) * 1000;
+  if (s.endsWith('M')) return parseFloat(s) || 0;
+  if (s.endsWith('K')) return (parseFloat(s) || 0) / 1000;
+  return (parseFloat(s) || 0) / (1024 * 1024);
+}
+
+function formatCpu(millicores) {
+  if (millicores === 0) return '0';
+  if (millicores % 1000 === 0) return String(millicores / 1000);
+  return (millicores / 1000).toFixed(1);
+}
+
+function formatMem(mi) {
+  if (mi === 0) return '0';
+  if (mi >= 1024) return (mi / 1024).toFixed(1).replace(/\.0$/, '') + 'Gi';
+  return Math.round(mi) + 'Mi';
 }
 
 function buildArchSummaryHtml(env, results) {
@@ -280,6 +325,17 @@ function buildArchSummaryHtml(env, results) {
 
   const containerCount = testPods.reduce((s, p) => s + (p.containers || []).length, 0);
   const totalVFs = (hw.sriovPolicies || []).reduce((s, p) => s + (p.numVfs || 0), 0);
+
+  let totalCpuReq = 0, totalCpuLim = 0, totalMemReq = 0, totalMemLim = 0;
+  testPods.forEach(p => (p.containers || []).forEach(c => {
+    const res = c.resources || {};
+    const req = res.requests || {};
+    const lim = res.limits || {};
+    totalCpuReq += parseCpu(req.cpu);
+    totalCpuLim += parseCpu(lim.cpu);
+    totalMemReq += parseMem(req.memory);
+    totalMemLim += parseMem(lim.memory);
+  }));
 
   const allResults = results || [];
   const p0Tests = allResults.filter(r => r.priority === 0);
@@ -310,6 +366,11 @@ function buildArchSummaryHtml(env, results) {
       <div class="arch-card-value">${testPods.length}</div>
       <div class="arch-card-label">Test Pods</div>
       <div class="arch-card-detail">${containerCount} containers | ${pods.allPodsCount || 0} total in ns</div>
+    </div>
+    <div class="arch-card arch-info" data-target="env-pods">
+      <div class="arch-card-value">${formatCpu(totalCpuReq)} / ${formatCpu(totalCpuLim)}</div>
+      <div class="arch-card-label">Pod Resources (CPU)</div>
+      <div class="arch-card-detail">${formatMem(totalMemReq)} / ${formatMem(totalMemLim)} memory</div>
     </div>
     <div class="arch-card arch-info" data-target="env-pods">
       <div class="arch-card-value">${deps.length + sts.length}</div>
@@ -596,6 +657,28 @@ function switchTab(tab) {
   document.getElementById('environment-panel').style.display = tab === 'environment' ? '' : 'none';
 }
 
+function getCheckedPriorities() {
+  var wrapper = document.getElementById('filter-priority');
+  if (!wrapper) return null;
+  var all = wrapper.querySelectorAll('input[type="checkbox"]');
+  var checked = wrapper.querySelectorAll('input[type="checkbox"]:checked');
+  if (checked.length === all.length) return null;
+  var set = {};
+  for (var i = 0; i < checked.length; i++) set[checked[i].value] = true;
+  return set;
+}
+
+function updatePriorityLabel() {
+  var wrapper = document.getElementById('filter-priority');
+  if (!wrapper) return;
+  var toggle = wrapper.querySelector('.multi-select-toggle');
+  var all = wrapper.querySelectorAll('input[type="checkbox"]');
+  var checked = wrapper.querySelectorAll('input[type="checkbox"]:checked');
+  if (checked.length === all.length) { toggle.textContent = 'All Priorities'; }
+  else if (checked.length === 0) { toggle.textContent = 'None'; }
+  else { var labels = []; for (var i = 0; i < checked.length; i++) labels.push('P' + checked[i].value); toggle.textContent = labels.join(', '); }
+}
+
 function applyFilters() {
   var category = document.getElementById('filter-category').value;
   var scenario = document.getElementById('filter-scenario').value;
@@ -608,6 +691,8 @@ function applyFilters() {
   if (showFailed) allowed['failed'] = true;
   if (showSkipped) allowed['skipped'] = true;
 
+  var allowedPriorities = getCheckedPriorities();
+
   document.querySelectorAll('.suite-section').forEach(function(section) {
     var suite = section.dataset.suite;
     var catMatch = category === 'all' || suite === category;
@@ -619,14 +704,15 @@ function applyFilters() {
       var status = row.dataset.status;
       var statusMatch = !!allowed[status];
       var scenarioMatch = matchScenario(row, scenario);
-      var visible = statusMatch && scenarioMatch;
+      var priorityMatch = !allowedPriorities || !!allowedPriorities[row.dataset.priority];
+      var visible = statusMatch && scenarioMatch && priorityMatch;
       row.style.display = visible ? '' : 'none';
       if (visible) visibleCount++;
     });
     section.style.display = catMatch && visibleCount > 0 ? '' : 'none';
   });
 
-  updateCategorySummary(category, allowed, scenario);
+  updateCategorySummary(category, allowed, scenario, allowedPriorities);
 }
 
 function matchScenario(row, scenario) {
@@ -639,7 +725,7 @@ function matchScenario(row, scenario) {
   return true;
 }
 
-function updateCategorySummary(category, allowed, scenario) {
+function updateCategorySummary(category, allowed, scenario, allowedPriorities) {
   var suites = Object.keys(RESULTS_BY_SUITE).sort();
   var rows = '';
   for (var i = 0; i < suites.length; i++) {
@@ -653,6 +739,9 @@ function updateCategorySummary(category, allowed, scenario) {
         if (scenario === 'telco-optional') return sc.Telco === 'Optional' || sc.telco === 'Optional';
         return true;
       });
+    }
+    if (allowedPriorities) {
+      results = results.filter(function(r) { return !!allowedPriorities[String(r.priority != null ? r.priority : 4)]; });
     }
     var passed = results.filter(function(r) { return r.normalizedState === 'passed' && allowed['passed']; }).length;
     var failed = results.filter(function(r) { return r.normalizedState === 'failed' && allowed['failed']; }).length;
@@ -679,6 +768,22 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('filter-passed').addEventListener('change', applyFilters);
   document.getElementById('filter-failed').addEventListener('change', applyFilters);
   document.getElementById('filter-skipped').addEventListener('change', applyFilters);
+
+  var pw = document.getElementById('filter-priority');
+  if (pw) {
+    var toggle = pw.querySelector('.multi-select-toggle');
+    toggle.addEventListener('click', function(e) {
+      e.stopPropagation();
+      pw.classList.toggle('open');
+      toggle.setAttribute('aria-expanded', pw.classList.contains('open'));
+    });
+    pw.querySelectorAll('input[type="checkbox"]').forEach(function(cb) {
+      cb.addEventListener('change', function() { updatePriorityLabel(); applyFilters(); });
+    });
+    document.addEventListener('click', function(e) {
+      if (!pw.contains(e.target)) { pw.classList.remove('open'); toggle.setAttribute('aria-expanded', 'false'); }
+    });
+  }
 
   document.querySelectorAll('.summary-card[data-filter]').forEach(function(card) {
     card.addEventListener('click', function() {
@@ -792,6 +897,19 @@ function generate(claimData) {
               <option value="telco-mandatory">Telco Mandatory</option>
               <option value="telco-optional">Telco Optional</option>
             </select>
+          </div>
+          <div class="filter-group">
+            <label>Priority</label>
+            <div class="multi-select" id="filter-priority">
+              <button type="button" class="multi-select-toggle filter-select" aria-expanded="false">All Priorities</button>
+              <div class="multi-select-menu">
+                <label><input type="checkbox" value="0" checked> P0 — Security Critical</label>
+                <label><input type="checkbox" value="1" checked> P1 — Host Access</label>
+                <label><input type="checkbox" value="2" checked> P2 — Cluster/Scheduling</label>
+                <label><input type="checkbox" value="3" checked> P3 — Lifecycle</label>
+                <label><input type="checkbox" value="4" checked> P4 — Advisory</label>
+              </div>
+            </div>
           </div>
           <div class="filter-group">
             <label>Status</label>
