@@ -192,7 +192,15 @@ function extractEnvironment(claimData) {
 
 function parse(filePath, filename) {
   const raw = fs.readFileSync(filePath, 'utf-8');
-  const claim = JSON.parse(raw);
+
+  let claim;
+  try {
+    claim = JSON.parse(raw);
+  } catch (e) {
+    const position = e.message.match(/position (\d+)/)?.[1];
+    const context = position ? ` near byte ${position}: "...${raw.slice(Math.max(0, +position - 20), +position + 20)}..."` : '';
+    throw new Error(`Invalid JSON in claim file "${filename}"${context}. Ensure the file is a valid certsuite claim.json.`);
+  }
 
   const claimData = claim.claim || claim;
   const results = claimData.results || {};
