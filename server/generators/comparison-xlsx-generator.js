@@ -68,13 +68,9 @@ function colorChangeCell(cell, change) {
 }
 
 function getTestDetails(t) {
-  if (t.change === 'changed' && t.failureDetailsB?.length) {
+  if (t.stateB === 'failed' && t.failureDetailsB?.length) {
     const reason = t.failureDetailsB[0].reason || JSON.stringify(t.failureDetailsB[0]);
     return typeof reason === 'string' ? reason : JSON.stringify(reason);
-  }
-  if (t.change === 'changed' && t.failureDetailsA?.length) {
-    const reason = t.failureDetailsA[0].reason || JSON.stringify(t.failureDetailsA[0]);
-    return 'Was: ' + (typeof reason === 'string' ? reason : JSON.stringify(reason));
   }
   return t.descriptionB || t.descriptionA || '';
 }

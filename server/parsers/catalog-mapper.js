@@ -71,7 +71,7 @@ const PRIORITY_MAP = {
   'observability-compatibility-with-next-ocp-release': 2,
   'observability-container-logging': 2,
   'observability-crd-status': 3,
-  'observability-pod-disruption-budget': 3,
+  'observability-pod-disruption-budget': 1,
   'observability-termination-policy': 2,
   'operator-catalogsource-bundle-count': 2,
   'operator-crd-openapi-schema': 2,

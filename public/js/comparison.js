@@ -236,12 +236,9 @@ function renderComparisonRow(t) {
   const changeBadge = `<span class="change-badge change-${t.change}">${t.change}</span>`;
 
   let details = '';
-  if (t.change === 'changed' && t.failureDetailsB?.length) {
+  if (t.stateB === 'failed' && t.failureDetailsB?.length) {
     const items = t.failureDetailsB.map(d => `<li>${escapeHtml(formatFailureDetail(d))}</li>`).join('');
     details = `<div class="failure-details"><ul class="fail-list">${items}</ul></div>`;
-  } else if (t.change === 'changed' && t.failureDetailsA?.length) {
-    const items = t.failureDetailsA.map(d => `<li>${escapeHtml(formatFailureDetail(d))}</li>`).join('');
-    details = `<div class="remediation-box">Was:<ul class="fail-list">${items}</ul></div>`;
   }
 
   const impact = escapeHtml(t.impactB || t.impactA || '');
