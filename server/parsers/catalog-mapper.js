@@ -33,7 +33,7 @@ const PRIORITY_MAP = {
   'access-control-sys-nice-realtime-capability': 1,
   'access-control-sys-ptrace-capability': 1,
   'affiliated-certification-container-is-certified-digest': 4,
-  'affiliated-certification-helm-version': 2,
+  'affiliated-certification-helm-version': 1,
   'affiliated-certification-helmchart-is-certified': 4,
   'affiliated-certification-operator-is-certified': 4,
   'lifecycle-affinity-required-pods': 3,
@@ -105,7 +105,8 @@ const PRIORITY_MAP = {
   'platform-alteration-ocp-node-os-lifecycle': 2,
   'platform-alteration-service-mesh-usage': 2,
   'platform-alteration-sysctl-config': 2,
-  'platform-alteration-tainted-node-kernel': 1
+  'platform-alteration-tainted-node-kernel': 1,
+  'preflight-RunAsNonRoot': 1
 };
 
 function load() {
